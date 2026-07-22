@@ -33,6 +33,16 @@ class Principal:
 
 
 @dataclass(frozen=True, slots=True)
+class User:
+    id: UUID
+    email: str
+    password_hash: str
+    role: Role
+    created_at: datetime
+    is_active: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class Invitation:
     id: UUID
     email: str
