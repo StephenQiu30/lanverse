@@ -65,11 +65,11 @@ class DeliveryWorkflowTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         for command in (
             "unittest discover",
-            "eslint",
+            "pnpm --dir frontend lint",
             "ruff check",
-            "tsc --noEmit",
+            "pnpm --dir frontend typecheck",
             "mypy",
-            "next build",
+            "pnpm --dir frontend build",
             "compileall",
         ):
             self.assertIn(command, result.stdout)
