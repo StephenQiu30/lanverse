@@ -27,11 +27,13 @@ class ProductShellContractTests(unittest.TestCase):
 
     def test_navigation_exposes_the_accepted_information_architecture(self) -> None:
         header = (FRONTEND / "components/site-header.tsx").read_text()
+        session_actions = (FRONTEND / "components/session-actions.tsx").read_text()
         layout = (FRONTEND / "app/layout.tsx").read_text()
 
         self.assertIn('href="/"', header)
-        for href in ("/explore", "/login", "/create", "/works", "/admin"):
+        for href in ("/explore", "/create", "/works", "/admin"):
             self.assertIn(f'href: "{href}"', header)
+        self.assertIn('href="/login"', session_actions)
         self.assertIn("<SiteHeader />", layout)
 
     def test_each_route_has_a_distinct_server_rendered_purpose(self) -> None:
