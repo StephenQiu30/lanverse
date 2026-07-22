@@ -14,6 +14,7 @@ app = Celery(
     broker=settings.rabbitmq_url,
 )
 app.conf.task_default_queue = "generation"
+app.conf.worker_enable_remote_control = False
 
 
 def health() -> dict[str, str]:

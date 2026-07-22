@@ -8,11 +8,11 @@ LOCAL_BROKER_URL = "amqp://thief:thief_local@localhost:5672//"
 
 
 @dataclass(frozen=True)
-class WorkerSettings:
+class SchedulerSettings:
     rabbitmq_url: str
 
     @classmethod
-    def from_env(cls) -> WorkerSettings:
+    def from_env(cls) -> SchedulerSettings:
         environment = os.getenv("THIEF_ENV", "development")
         rabbitmq_url = os.getenv("THIEF_RABBITMQ_URL")
         if environment == "production" and not rabbitmq_url:
