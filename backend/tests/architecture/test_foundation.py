@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
-import json
 from pathlib import Path
 
 from tools.architecture import find_violations, required_layout_errors
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class FoundationLayoutTests(unittest.TestCase):

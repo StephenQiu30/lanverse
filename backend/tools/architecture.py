@@ -31,30 +31,52 @@ def required_layout_errors(root: Path) -> list[str]:
         ".node-version",
         ".python-version",
         "Makefile",
-        "package.json",
-        "pnpm-lock.yaml",
-        "pnpm-workspace.yaml",
-        "pyproject.toml",
-        "turbo.json",
-        "uv.lock",
-        "apps/web/package.json",
-        "apps/web/src/app/page.tsx",
-        "apps/web/src/app/health/route.ts",
-        "apps/api/src/thief_api/main.py",
-        "apps/worker/src/thief_worker/app.py",
-        "apps/scheduler/src/thief_scheduler/main.py",
-        "packages/contracts/src/thief_contracts/__init__.py",
-        "packages/adapters/src/thief_adapters/__init__.py",
+        "frontend/components.json",
+        "frontend/package.json",
+        "frontend/pnpm-lock.yaml",
+        "frontend/pnpm-workspace.yaml",
+        "frontend/postcss.config.mjs",
+        "frontend/src/app/error.tsx",
+        "frontend/src/app/loading.tsx",
+        "frontend/src/app/not-found.tsx",
+        "frontend/src/app/page.tsx",
+        "frontend/src/app/health/route.ts",
+        "frontend/src/components/ui/button.tsx",
+        "frontend/src/components/ui/card.tsx",
+        "frontend/src/lib/utils.ts",
+        "backend/pyproject.toml",
+        "backend/uv.lock",
+        "backend/apps/api/src/thief_api/main.py",
+        "backend/apps/worker/src/thief_worker/app.py",
+        "backend/apps/scheduler/src/thief_scheduler/main.py",
+        "backend/packages/contracts/src/thief_contracts/__init__.py",
+        "backend/packages/adapters/src/thief_adapters/__init__.py",
     ]
     for module in MODULES:
-        base = f"packages/core/src/thief_core/{module}"
+        base = f"backend/packages/core/src/thief_core/{module}"
         required.extend(
             f"{base}/{part}/__init__.py"
             for part in ("domain", "application", "ports")
         )
         required.append(f"{base}/__init__.py")
 
-    return [f"missing:{path}" for path in required if not (root / path).is_file()]
+    errors = [
+        f"missing:{path}" for path in required if not (root / path).is_file()
+    ]
+    forbidden = (
+        "apps",
+        "packages",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "pyproject.toml",
+        "turbo.json",
+        "uv.lock",
+    )
+    errors.extend(
+        f"forbidden:{path}" for path in forbidden if (root / path).exists()
+    )
+    return errors
 
 
 def find_violations(core: Path) -> list[str]:

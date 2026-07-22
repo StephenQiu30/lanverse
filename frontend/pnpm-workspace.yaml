@@ -1,5 +1,3 @@
-packages:
-  - apps/web
 allowBuilds:
   sharp: true
   unrs-resolver: true
