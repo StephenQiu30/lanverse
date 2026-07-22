@@ -55,6 +55,26 @@ class PersistenceArchitectureTests(unittest.TestCase):
         self.assertIn("THIEF_DATABASE_URL=", result.stdout)
         self.assertIn("alembic -c alembic.ini upgrade heads", result.stdout)
 
+    def test_ci_runs_migrations_and_integration_tests_on_postgres_18(self) -> None:
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+
+        for expected in (
+            "image: postgres:18.4-bookworm",
+            "make migrate",
+            "make test-integration",
+        ):
+            self.assertIn(expected, workflow)
+
+        result = subprocess.run(
+            ["make", "--dry-run", "test-integration"],
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("tests/integration", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
