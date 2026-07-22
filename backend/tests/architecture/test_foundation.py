@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -53,6 +54,11 @@ class FoundationLayoutTests(unittest.TestCase):
 
 
 class DeliveryWorkflowTests(unittest.TestCase):
+    def test_backend_pins_current_argon2_password_library(self) -> None:
+        manifest = tomllib.loads((ROOT / "backend/pyproject.toml").read_text())
+
+        self.assertIn("argon2-cffi==25.1.0", manifest["project"]["dependencies"])
+
     def test_make_verify_runs_current_s0_gates(self) -> None:
         result = subprocess.run(
             ["make", "--dry-run", "verify"],
