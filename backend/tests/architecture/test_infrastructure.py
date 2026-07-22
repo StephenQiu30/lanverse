@@ -23,6 +23,7 @@ class InfrastructureContractTests(unittest.TestCase):
             "pg_isready",
             "rabbitmq-diagnostics",
             "/minio/health/live",
+            "      - postgres_data:/var/lib/postgresql\n",
             "postgres_data:",
             "rabbitmq_data:",
             "minio_data:",
