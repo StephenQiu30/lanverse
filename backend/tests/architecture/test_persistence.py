@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import unittest
 from pathlib import Path
@@ -54,6 +55,20 @@ class PersistenceArchitectureTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("THIEF_DATABASE_URL=", result.stdout)
         self.assertIn("alembic -c alembic.ini upgrade heads", result.stdout)
+
+    def test_make_preserves_an_external_database_url(self) -> None:
+        ci_url = "postgresql+psycopg://thief:thief_ci@localhost:5432/thief"
+        result = subprocess.run(
+            ["make", "--dry-run", "migrate"],
+            cwd=ROOT,
+            env={**os.environ, "THIEF_DATABASE_URL": ci_url},
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"THIEF_DATABASE_URL={ci_url}", result.stdout)
 
     def test_ci_runs_migrations_and_integration_tests_on_postgres_18(self) -> None:
         workflow = (ROOT / ".github/workflows/ci.yml").read_text()
