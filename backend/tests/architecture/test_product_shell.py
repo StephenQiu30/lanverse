@@ -72,7 +72,7 @@ class ProductShellContractTests(unittest.TestCase):
             'type="email"',
             'type="password"',
             'fetch("/api/session"',
-            "router.replace(returnTo)",
+            "window.location.assign(returnTo)",
             'role="alert"',
         ):
             self.assertIn(expected, login_form)
