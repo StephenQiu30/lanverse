@@ -57,6 +57,39 @@ class ProductShellContractTests(unittest.TestCase):
         self.assertIn('aria-busy="true"', loading)
         self.assertIn("页面加载中", loading)
 
+    def test_login_uses_a_small_client_form_and_shadcn_primitives(self) -> None:
+        login_page = (FRONTEND / "app/login/page.tsx").read_text()
+        login_form = (FRONTEND / "components/login-form.tsx").read_text()
+
+        self.assertIn("<LoginForm", login_page)
+        self.assertNotIn('"use client"', login_page)
+        self.assertIn('"use client"', login_form)
+        for primitive in ("alert", "input", "label"):
+            self.assertTrue((FRONTEND / f"components/ui/{primitive}.tsx").is_file())
+        for expected in (
+            'type="email"',
+            'type="password"',
+            'fetch("/api/session"',
+            "router.replace(returnTo)",
+            'role="alert"',
+        ):
+            self.assertIn(expected, login_form)
+
+    def test_web_proxies_sessions_and_protects_private_routes(self) -> None:
+        route = (FRONTEND / "app/api/session/route.ts").read_text()
+        proxy = (FRONTEND / "proxy.ts").read_text()
+        header = (FRONTEND / "components/site-header.tsx").read_text()
+
+        for method in ("GET", "POST", "DELETE"):
+            self.assertIn(f"export async function {method}", route)
+        self.assertIn('headers.getSetCookie()', route)
+        self.assertIn('request.headers.get("x-csrf-token")', route)
+        self.assertIn('request.cookies.get("thief_session")', proxy)
+        for private_path in ("/create", "/works", "/admin"):
+            self.assertIn(private_path, proxy)
+        self.assertIn("returnTo", proxy)
+        self.assertIn("<SessionActions />", header)
+
 
 if __name__ == "__main__":
     unittest.main()
