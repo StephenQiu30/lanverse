@@ -2,6 +2,12 @@ PNPM ?= pnpm
 UV ?= uv
 FRONTEND := frontend
 BACKEND := backend
+BACKEND_PYTHONPATH := $(CURDIR)/$(BACKEND)/apps/api/src
+BACKEND_PYTHONPATH := $(BACKEND_PYTHONPATH):$(CURDIR)/$(BACKEND)/apps/worker/src
+BACKEND_PYTHONPATH := $(BACKEND_PYTHONPATH):$(CURDIR)/$(BACKEND)/apps/scheduler/src
+BACKEND_PYTHONPATH := $(BACKEND_PYTHONPATH):$(CURDIR)/$(BACKEND)/packages/core/src
+BACKEND_PYTHONPATH := $(BACKEND_PYTHONPATH):$(CURDIR)/$(BACKEND)/packages/contracts/src
+BACKEND_PYTHONPATH := $(BACKEND_PYTHONPATH):$(CURDIR)/$(BACKEND)/packages/adapters/src
 COMPOSE_FILE := infra/compose/compose.yaml
 COMPOSE_ENV := infra/compose/.env.example
 COMPOSE := docker compose --env-file $(COMPOSE_ENV) -f $(COMPOSE_FILE)
@@ -46,7 +52,8 @@ run-web:
 	$(PNPM) --dir $(FRONTEND) start --port 3000
 
 run-api:
-	$(UV) run --directory $(BACKEND) uvicorn thief_api.main:app \
+	PYTHONPATH=$(BACKEND_PYTHONPATH) \
+		$(UV) run --directory $(BACKEND) uvicorn thief_api.main:app \
 		--app-dir apps/api/src --host 127.0.0.1 --port 8000
 
 run-worker:
@@ -84,12 +91,14 @@ test-integration:
 		-s tests/integration -p 'test_*.py'
 
 test-runtime: build
-	THIEF_RABBITMQ_MANAGEMENT_URL=$(THIEF_RABBITMQ_MANAGEMENT_URL) \
+	THIEF_DATABASE_URL=$(THIEF_DATABASE_URL) \
+		THIEF_RABBITMQ_MANAGEMENT_URL=$(THIEF_RABBITMQ_MANAGEMENT_URL) \
 		THIEF_RABBITMQ_URL=$(THIEF_RABBITMQ_URL) $(UV) run --directory $(BACKEND) \
 		python tools/runtime_smoke.py
 
 test-unit:
-	PYTHONDONTWRITEBYTECODE=1 $(UV) run --directory $(BACKEND) \
+	PYTHONPATH=$(BACKEND_PYTHONPATH) PYTHONDONTWRITEBYTECODE=1 \
+		$(UV) run --directory $(BACKEND) \
 		python -m unittest discover \
 		-s tests/unit -p 'test_*.py'
 

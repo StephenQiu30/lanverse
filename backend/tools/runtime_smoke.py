@@ -20,6 +20,9 @@ SOURCE_DIRS = (
     BACKEND / "apps/api/src",
     BACKEND / "apps/worker/src",
     BACKEND / "apps/scheduler/src",
+    BACKEND / "packages/core/src",
+    BACKEND / "packages/contracts/src",
+    BACKEND / "packages/adapters/src",
 )
 BROKER_URL = "amqp://thief:thief_local@localhost:5672//"
 
