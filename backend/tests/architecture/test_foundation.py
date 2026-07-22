@@ -80,7 +80,7 @@ class DeliveryWorkflowTests(unittest.TestCase):
         for expected in (
             'node-version-file: ".node-version"',
             'python-version-file: ".python-version"',
-            'version: "0.11.18"',
+            'version: "0.11.31"',
             "pnpm@11.15.1",
             "make bootstrap",
             "make verify",
