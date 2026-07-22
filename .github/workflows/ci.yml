@@ -17,6 +17,21 @@ jobs:
       contents: read
     env:
       CI: "true"
+      THIEF_DATABASE_URL: postgresql+psycopg://thief:thief_ci@localhost:5432/thief
+    services:
+      postgres:
+        image: postgres:18.4-bookworm
+        env:
+          POSTGRES_DB: thief
+          POSTGRES_PASSWORD: thief_ci
+          POSTGRES_USER: thief
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U thief -d thief"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
 
     steps:
       - name: Checkout repository
@@ -45,6 +60,12 @@ jobs:
 
       - name: Install locked dependencies
         run: make bootstrap
+
+      - name: Migrate database
+        run: make migrate
+
+      - name: Test database integration
+        run: make test-integration
 
       - name: Verify project
         run: make verify
