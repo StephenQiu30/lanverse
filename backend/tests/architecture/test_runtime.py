@@ -11,6 +11,18 @@ FRONTEND_PACKAGE = ROOT / "frontend/package.json"
 
 
 class RuntimeContractTests(unittest.TestCase):
+    def test_runtime_smoke_passes_an_explicit_database_url(self) -> None:
+        result = subprocess.run(
+            ["make", "--dry-run", "test-runtime"],
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("THIEF_DATABASE_URL=", result.stdout)
+
     def test_production_runtime_packages_assets_and_temp_state(self) -> None:
         package = FRONTEND_PACKAGE.read_text()
         self.assertIn(
