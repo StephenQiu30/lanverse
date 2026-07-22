@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 from tools.architecture import find_violations, required_layout_errors
@@ -13,6 +14,41 @@ ROOT = Path(__file__).resolve().parents[2]
 class FoundationLayoutTests(unittest.TestCase):
     def test_required_foundation_layout_exists(self) -> None:
         self.assertEqual(required_layout_errors(ROOT), [])
+
+    def test_frontend_and_backend_are_top_level_boundaries(self) -> None:
+        required = [
+            "frontend/package.json",
+            "frontend/pnpm-lock.yaml",
+            "frontend/src/app/page.tsx",
+            "backend/pyproject.toml",
+            "backend/uv.lock",
+            "backend/apps/api/src/thief_api/main.py",
+            "backend/packages/core/src/thief_core/__init__.py",
+        ]
+
+        self.assertEqual(
+            [path for path in required if not (ROOT / path).is_file()],
+            [],
+        )
+        self.assertFalse((ROOT / "apps").exists())
+        self.assertFalse((ROOT / "packages").exists())
+
+    def test_frontend_uses_standard_next_and_radix_shadcn(self) -> None:
+        required = [
+            "frontend/components.json",
+            "frontend/postcss.config.mjs",
+            "frontend/src/app/error.tsx",
+            "frontend/src/app/loading.tsx",
+            "frontend/src/app/not-found.tsx",
+            "frontend/src/components/ui/button.tsx",
+            "frontend/src/components/ui/card.tsx",
+            "frontend/src/lib/utils.ts",
+        ]
+        missing = [path for path in required if not (ROOT / path).is_file()]
+        self.assertEqual(missing, [])
+
+        manifest = json.loads((ROOT / "frontend/package.json").read_text())
+        self.assertIn("radix-ui", manifest["dependencies"])
 
 
 class ArchitectureBoundaryTests(unittest.TestCase):
