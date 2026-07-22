@@ -7,9 +7,27 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
+FRONTEND_PACKAGE = ROOT / "frontend/package.json"
 
 
 class RuntimeContractTests(unittest.TestCase):
+    def test_production_runtime_packages_assets_and_temp_state(self) -> None:
+        package = FRONTEND_PACKAGE.read_text()
+        self.assertIn(
+            "cp -R .next/static .next/standalone/.next/static",
+            package,
+        )
+
+        scheduler = subprocess.run(
+            ["make", "--dry-run", "run-scheduler"],
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        self.assertEqual(scheduler.returncode, 0, scheduler.stderr)
+        self.assertIn("tmp/celerybeat-schedule", scheduler.stdout)
+
     def test_runtime_entrypoints_and_smoke_test_exist(self) -> None:
         for path in (
             "backend/apps/scheduler/src/thief_scheduler/app.py",
