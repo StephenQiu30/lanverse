@@ -29,8 +29,9 @@ class ProductShellContractTests(unittest.TestCase):
         header = (FRONTEND / "components/site-header.tsx").read_text()
         layout = (FRONTEND / "app/layout.tsx").read_text()
 
-        for href in ("/", "/explore", "/login", "/create", "/works", "/admin"):
-            self.assertIn(f'href="{href}"', header)
+        self.assertIn('href="/"', header)
+        for href in ("/explore", "/login", "/create", "/works", "/admin"):
+            self.assertIn(f'href: "{href}"', header)
         self.assertIn("<SiteHeader />", layout)
 
     def test_each_route_has_a_distinct_server_rendered_purpose(self) -> None:
