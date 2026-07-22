@@ -57,10 +57,12 @@ run-worker:
 		--without-gossip --without-heartbeat --without-mingle
 
 run-scheduler:
+	mkdir -p $(CURDIR)/tmp
 	PYTHONPATH=$(CURDIR)/$(BACKEND)/apps/scheduler/src \
 		THIEF_RABBITMQ_URL=$(THIEF_RABBITMQ_URL) \
 		$(UV) run --directory $(BACKEND) celery -A thief_scheduler.app:app beat \
-		--loglevel=WARNING
+		--loglevel=WARNING --pidfile=$(CURDIR)/tmp/celerybeat.pid \
+		--schedule=$(CURDIR)/tmp/celerybeat-schedule
 
 lint:
 	$(PNPM) --dir $(FRONTEND) lint
