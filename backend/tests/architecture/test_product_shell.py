@@ -49,6 +49,14 @@ class ProductShellContractTests(unittest.TestCase):
             self.assertIn(heading, source)
             self.assertNotIn('"use client"', source)
 
+    def test_route_states_have_accessible_status_semantics(self) -> None:
+        for path in ("app/error.tsx", "app/not-found.tsx"):
+            self.assertIn("<h1>", (FRONTEND / path).read_text())
+
+        loading = (FRONTEND / "app/loading.tsx").read_text()
+        self.assertIn('aria-busy="true"', loading)
+        self.assertIn("页面加载中", loading)
+
 
 if __name__ == "__main__":
     unittest.main()
