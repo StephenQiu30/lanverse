@@ -11,4 +11,4 @@ async def live() -> dict[str, str]:
 
 @app.get("/health/ready")
 async def ready() -> dict[str, str]:
-    return {"service": "api", "status": "ready"}
+    return {"service": "api", "status": "ok"}

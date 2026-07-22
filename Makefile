@@ -3,7 +3,7 @@ UV ?= uv
 FRONTEND := frontend
 BACKEND := backend
 
-.PHONY: bootstrap build dev lint test-architecture typecheck verify
+.PHONY: bootstrap build dev lint test-architecture test-unit typecheck verify
 
 bootstrap:
 	$(PNPM) --dir $(FRONTEND) install --frozen-lockfile
@@ -29,4 +29,9 @@ test-architecture:
 		python -m unittest discover \
 		-s tests/architecture -p 'test_*.py'
 
-verify: test-architecture lint typecheck build
+test-unit:
+	PYTHONDONTWRITEBYTECODE=1 $(UV) run --directory $(BACKEND) \
+		python -m unittest discover \
+		-s tests/unit -p 'test_*.py'
+
+verify: test-unit test-architecture lint typecheck build
