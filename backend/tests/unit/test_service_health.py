@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import io
 import os
@@ -9,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
+import httpx
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -24,14 +25,23 @@ for source in (
 
 class ServiceHealthTests(unittest.TestCase):
     def test_api_health_endpoints_follow_the_common_contract(self) -> None:
+        asyncio.run(self._assert_api_health_endpoints())
+
+    async def _assert_api_health_endpoints(self) -> None:
         from thief_api.main import app
 
-        client = TestClient(app)
-
-        for path in ("/health/live", "/health/ready"):
-            response = client.get(path)
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json(), {"service": "api", "status": "ok"})
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            for path in ("/health/live", "/health/ready"):
+                response = await client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.json(),
+                    {"service": "api", "status": "ok"},
+                )
 
     def test_worker_and_scheduler_expose_cli_healthchecks(self) -> None:
         from thief_scheduler.main import main as scheduler_main
