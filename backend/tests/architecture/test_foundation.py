@@ -52,6 +52,11 @@ class FoundationLayoutTests(unittest.TestCase):
 
 
 class ArchitectureBoundaryTests(unittest.TestCase):
+    def test_current_core_has_no_violations(self) -> None:
+        core = ROOT / "backend/packages/core/src/thief_core"
+
+        self.assertEqual(find_violations(core), [])
+
     def test_core_rejects_framework_imports(self) -> None:
         violations = self._scan(
             "catalog/domain/model.py",
