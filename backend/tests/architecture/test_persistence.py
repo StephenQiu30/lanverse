@@ -18,12 +18,13 @@ class PersistenceArchitectureTests(unittest.TestCase):
 
         for module in MODULES:
             version_directory = BACKEND / f"migrations/{module}/versions"
-            revisions = list(version_directory.glob("*.py"))
-            self.assertEqual(len(revisions), 1, module)
-            source = revisions[0].read_text()
-            self.assertIn(f'revision = "{module}_0001"', source)
-            self.assertIn(f'CREATE SCHEMA "{module}"', source)
-            self.assertIn(f'DROP SCHEMA "{module}"', source)
+            revisions = sorted(version_directory.glob("*.py"))
+            expected_count = 2 if module == "identity" else 1
+            self.assertEqual(len(revisions), expected_count, module)
+            root_source = revisions[0].read_text()
+            self.assertIn(f'revision = "{module}_0001"', root_source)
+            self.assertIn(f'CREATE SCHEMA "{module}"', root_source)
+            self.assertIn(f'DROP SCHEMA "{module}"', root_source)
             self.assertIn(f"migrations/{module}/versions", config)
 
     def test_unit_of_work_port_stays_framework_independent(self) -> None:
@@ -42,6 +43,19 @@ class PersistenceArchitectureTests(unittest.TestCase):
             find_violations(BACKEND / "packages/core/src/thief_core"),
             [],
         )
+
+    def test_identity_has_a_forward_business_migration(self) -> None:
+        migration = (
+            BACKEND
+            / "migrations/identity/versions/0002_create_identity_tables.py"
+        )
+
+        self.assertTrue(migration.is_file())
+        source = migration.read_text()
+        self.assertIn('down_revision = "identity_0001"', source)
+        for table in ("users", "invitations", "sessions"):
+            self.assertIn(f'op.create_table(\n        "{table}"', source)
+            self.assertIn(f'op.drop_table("{table}"', source)
 
     def test_make_exposes_migration_command(self) -> None:
         result = subprocess.run(
