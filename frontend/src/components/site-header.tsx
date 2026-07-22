@@ -1,13 +1,13 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { SessionActions } from "@/components/session-actions";
 
 const navigation = [
   { href: "/explore", label: "探索" },
   { href: "/create", label: "创作" },
   { href: "/works", label: "作品" },
   { href: "/admin", label: "管理" },
-  { href: "/login", label: "登录" },
 ];
 
 export function SiteHeader() {
@@ -29,6 +29,7 @@ export function SiteHeader() {
               <Link href={item.href}>{item.label}</Link>
             </Button>
           ))}
+          <SessionActions />
         </nav>
       </div>
     </header>
