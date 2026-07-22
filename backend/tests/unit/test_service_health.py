@@ -61,12 +61,31 @@ class ServiceHealthTests(unittest.TestCase):
                 f'{{"service": "{service}", "status": "ok"}}',
             )
 
-    def test_production_worker_requires_an_explicit_broker_url(self) -> None:
+    def test_services_share_the_local_rabbitmq_contract(self) -> None:
+        from thief_scheduler.settings import SchedulerSettings
+        from thief_worker.settings import WorkerSettings
+
+        with patch.dict(os.environ, {}, clear=True):
+            for settings_type in (WorkerSettings, SchedulerSettings):
+                settings = settings_type.from_env()
+                self.assertEqual(
+                    settings.rabbitmq_url,
+                    "amqp://thief:thief_local@localhost:5672//",
+                )
+
+    def test_production_services_require_an_explicit_broker_url(self) -> None:
+        from thief_scheduler.settings import SchedulerSettings
         from thief_worker.settings import WorkerSettings
 
         with patch.dict(os.environ, {"THIEF_ENV": "production"}, clear=True):
-            with self.assertRaisesRegex(RuntimeError, "THIEF_RABBITMQ_URL"):
-                WorkerSettings.from_env()
+            for settings_type in (WorkerSettings, SchedulerSettings):
+                with self.assertRaisesRegex(RuntimeError, "THIEF_RABBITMQ_URL"):
+                    settings_type.from_env()
+
+    def test_scheduler_celery_app_uses_its_broker_settings(self) -> None:
+        from thief_scheduler.app import app, settings
+
+        self.assertEqual(app.conf.broker_url, settings.rabbitmq_url)
 
     def test_make_verify_includes_unit_health_tests(self) -> None:
         result = subprocess.run(
