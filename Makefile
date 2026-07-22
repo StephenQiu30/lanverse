@@ -2,8 +2,12 @@ PNPM ?= pnpm
 UV ?= uv
 FRONTEND := frontend
 BACKEND := backend
+COMPOSE_FILE := infra/compose/compose.yaml
+COMPOSE_ENV := infra/compose/.env.example
+COMPOSE := docker compose --env-file $(COMPOSE_ENV) -f $(COMPOSE_FILE)
 
-.PHONY: bootstrap build dev lint test-architecture test-unit typecheck verify
+.PHONY: bootstrap build dev infra-config infra-down infra-up lint \
+	test-architecture test-unit typecheck verify
 
 bootstrap:
 	$(PNPM) --dir $(FRONTEND) install --frozen-lockfile
@@ -15,6 +19,15 @@ build:
 
 dev:
 	$(PNPM) --dir $(FRONTEND) dev
+
+infra-config:
+	$(COMPOSE) config --quiet
+
+infra-up: infra-config
+	$(COMPOSE) up --detach --wait --wait-timeout 180
+
+infra-down:
+	$(COMPOSE) down
 
 lint:
 	$(PNPM) --dir $(FRONTEND) lint
@@ -34,4 +47,4 @@ test-unit:
 		python -m unittest discover \
 		-s tests/unit -p 'test_*.py'
 
-verify: test-unit test-architecture lint typecheck build
+verify: infra-config test-unit test-architecture lint typecheck build
