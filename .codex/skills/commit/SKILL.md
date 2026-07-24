@@ -44,9 +44,14 @@ Do not mix unrelated types in one commit. Split by type when practical.
 3. Confirm the current branch with `git branch --show-current` and inspect
    `git status`; if the branch name is empty, stop and report detached HEAD.
 4. Inspect the working tree and staged changes (`git diff`, `git diff --staged`).
-5. Stage intended changes (`git add -A`) after confirming scope.
-6. Sanity-check newly added files; flag build artifacts, logs, or temp files before committing.
-7. If staging is incomplete or includes unrelated files, fix the index or ask for confirmation.
+5. Build an explicit whitelist of task-owned paths, then stage only those paths with
+   `git add -- <path>...`; do not use `git add -A`, broad globs, or repository-wide
+   staging shortcuts.
+6. Compare `git diff --name-only --staged` with the whitelist and inspect
+   `git diff --staged`; exclude unrelated files, secrets, caches, logs, build
+   artifacts, generated output, and temporary files before committing.
+7. If the staged set differs from the whitelist, staging is incomplete, or a path
+   cannot be attributed to the task, fix the index or ask for confirmation.
 8. Choose the allowed type that matches the staged diff. Do not use `fix:` or scoped conventional types unless documented as an exception.
 9. Write a subject line in imperative mood, <= 72 characters. Format: `<type> <short summary>`.
 10. Write a body with summary, rationale, and tests or validation run (or why not run).
