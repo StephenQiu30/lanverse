@@ -2,7 +2,27 @@
 
 本目录存放设计方案类文档。
 
-正式设计必须以 [`requirement/`](../requirement/README.md) 中已接受的 SRS、FR、NFR 和 TCR 为输入，并满足 [`ADG-001 前后端集成契约与设计完整性评审门禁`](../requirement/ADG-001-前后端集成契约与设计完整性评审门禁.md)。未通过门禁的内容不得直接进入实现。
+Design 草案可在需求处于 `review` 且无已知 P0 冲突时形成；转为 `accepted` 或进入 PRD 前，必须以 [`requirement/`](../requirement/README.md) 中已接受的 SRS、FR、NFR 和 TCR 为输入，并通过 [`ADG-001`](../requirement/ADG-001-前后端集成契约与设计完整性评审门禁.md) 的 `design_entry` 门禁。未完成 PRD 与可执行 Plan 时不得进入实现。
+
+## 当前设计基线
+
+| 文档 | 状态 | 负责范围 |
+| --- | --- | --- |
+| [ARCH-001 AI 短剧制作平台总体架构](ARCH-001-AI短剧制作平台总体架构设计.md) | review | `backend/frontend/deploy/docs` 目录、运行边界、模块和切片 |
+| [ARCH-002 短剧生产流程与工作台](ARCH-002-短剧生产流程与工作台设计.md) | review | 来源事件、端到端流程、页面职责、Agent 与画布边界 |
+| [ARCH-003 AI 策划与生成任务架构](ARCH-003-AI策划与生成任务架构设计.md) | review | Agent、数据、生成快照、Temporal、Provider、媒体与恢复 |
+| [ARCH-004 API、事件、文件与数据契约](ARCH-004-API事件文件与数据契约设计.md) | review | OpenAPI、命令查询、SSE、Webhook、Outbox、文件与数据生命周期 |
+| [ARCH-005 媒体安全、隐私与数据生命周期](ARCH-005-媒体安全隐私与数据生命周期设计.md) | review | 上传隔离、媒体派生、时间线、交付、威胁、隐私与保留删除 |
+| [ARCH-006 部署观测灾备容量成本与测试](ARCH-006-部署观测灾备容量成本与测试设计.md) | review | 环境拓扑、CI/CD、SLO、灾备、容量成本、测试与运行手册 |
+
+本组文档共同评审；当前不得据此直接创建应用骨架或业务代码。参考 Jellyfish 与 Toonflow 只用于设计取舍，不构成代码复制或依赖引入。
+
+## 治理与决策索引
+
+| 文档 | 状态 | 用途 |
+| --- | --- | --- |
+| [TRACE-001 需求设计验证追踪矩阵](TRACE-001-AI短剧平台需求设计验证追踪矩阵.md) | review | 逐需求记录覆盖、设计位置与分阶段验证入口 |
+| [ADR-001 首发平台架构与仓库边界](ADR-001-首发平台架构与仓库边界.md) | review | 记录 monorepo、模块化单体、持久任务及退出条件 |
 
 ## 适合放入
 
