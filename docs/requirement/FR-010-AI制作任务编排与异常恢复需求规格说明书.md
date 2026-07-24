@@ -4,7 +4,7 @@ doc_type: Functional Requirements Specification
 doc_no: FR-010
 title: AI制作任务编排与异常恢复
 status: review
-version: 1.1.2
+version: 1.1.3
 owner: Lanverse
 audience: [PM, Product, Architecture, Dev, QA, Operations]
 feature_area: AI制作任务编排与异常恢复
@@ -52,7 +52,7 @@ downstream: [任务编排 Design, 任务中心 PRD, 任务中心 Plan, Acceptanc
 | FR-010-011 | 系统应区分创作质量不合格与平台或供应执行故障。 | P0 |
 | FR-010-012 | 系统应把局部返工关联到原候选、原问题和修改范围。 | P0 |
 | FR-010-013 | 系统应在上游基线变化后标记运行任务和结果待复核，而不静默更换输入。 | P0 |
-| FR-010-014 | 系统应以 `workspace_id + subject_id + operation_id + target_scope + idempotency_key` 作为统一幂等作用域；`target_scope` 为稳定目标标识，创建类命令使用明确的集合标识。同一作用域和同一规范化载荷的请求重放必须返回原任务及原尝试，不得再次执行副作用。 | P0 |
+| FR-010-014 | 系统应以 `workspace_id + subject_id + operation_id + target_scope + idempotency_key` 作为统一幂等作用域；`target_scope` 为稳定目标标识，创建类命令使用明确的集合标识。同一作用域和同一规范化载荷的请求重放在资源已形成时必须返回原 Task/Attempt，尚未形成时必须返回带 `Retry-After` 与 `status_url` 的 `409 IDEMPOTENCY_IN_PROGRESS`；两种情况均不得再次执行副作用。 | P0 |
 | FR-010-015 | 系统应阻止前置依赖未达到所需状态的任务开始执行。 | P0 |
 | FR-010-016 | 系统应在前置依赖达到所需状态后解锁后续任务。 | P0 |
 | FR-010-017 | 系统应根据明确规则将前置任务失败或取消后的后续任务标记为阻断、跳过或待人工决定。 | P0 |
@@ -97,7 +97,7 @@ downstream: [任务编排 Design, 任务中心 PRD, 任务中心 Plan, Acceptanc
 ## 7. 验收标准
 
 - AC-010-001：批次中一个镜头失败不影响其他成功镜头。
-- AC-010-002：同一幂等作用域、键和载荷的启动或重试请求被重复提交时，返回原任务和原尝试，不创建重复消费。
+- AC-010-002：同一幂等作用域、键和载荷的启动或重试请求在资源已形成后被重复提交时，返回原 Task/Attempt，不创建重复消费；资源尚未形成的竞争请求按 FR-010-014 返回处理中响应。
 - AC-010-003：任务运行期间资产更新，本次尝试仍保留原输入并显示待复核。
 - AC-010-004：取消后迟到结果不会自动出现在正常候选列表。
 - AC-010-005：前置任务未完成时后续任务不能启动，完成后按所需状态自动解锁。
