@@ -55,7 +55,7 @@
 4. 提交前后检查 diff 与工作区，排除无关修改、secret、缓存、日志、构建产物和一次性文件。
 5. PR 正文遵循仓库模板，至少说明 Summary、Test-first Evidence、Commands、Result、Agent Usage 和 Reviewer Checklist。
 6. 合并前必须完成目标验证和 PR feedback sweep，PR 检查为绿色或明确说明未配置检查。
-7. 收到人工合并批准后，为准确落地提交创建并推送 annotated pre-merge tag，再执行 `.codex/skills/land/SKILL.md`。
+7. 收到人工合并批准后，先确认本地 `HEAD` 与待合并 PR head 完全一致，再为该 PR head 创建并推送 annotated pre-merge tag，随后执行 `.codex/skills/land/SKILL.md`。
 8. 根据反馈返工时，重读正式文档、PR 意见和最新 `origin/main`，修正后重新验证。
 
 ## 交付格式

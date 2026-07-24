@@ -12,9 +12,11 @@ developer_instructions = """
 
 输出：
 - 改动摘要。
-- 验证摘要。
+- 具体验证命令及其结果。
+- Acceptance 结论。
 - 风险与限制。
-- PR/CI 状态。
+- Git 提交与工作区状态。
+- PR、CI 与合并状态。
 - 关键文件。
 """
 

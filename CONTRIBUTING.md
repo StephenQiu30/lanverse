@@ -24,4 +24,4 @@
 4. 中间产物、临时文件、测试输出、调试日志和本地缓存不提交到 GitHub。
 5. 使用中文提交信息说明修改内容。
 6. 创建 PR 时使用中文标题和描述，并填写 Test-first Evidence、测试命令、前后结果和 Agent 使用情况。
-7. PR 合并前先给目标分支打 tag，保留合并前回滚点。
+7. 收到人工合并批准后，确认本地 `HEAD` 与待合并 PR head 一致，为该 PR head 创建并推送 annotated pre-merge tag，再按 `.codex/skills/land/SKILL.md` 合并。
