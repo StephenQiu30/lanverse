@@ -4,7 +4,7 @@ doc_type: Media Security Privacy and Data Lifecycle Architecture Design
 doc_no: ARCH-005
 title: 媒体安全、隐私与数据生命周期设计
 status: review
-version: 0.2.0
+version: 0.2.1
 owner: Lanverse
 audience: [Architecture, Backend, Frontend, QA, Security, Privacy, Governance, Operations]
 feature_area: 媒体处理、时间线、交付、安全、隐私与数据生命周期
@@ -51,7 +51,7 @@ flowchart LR
 | 对象（所属模块） | 权威事实 | 状态或不变式 |
 | --- | --- | --- |
 | MediaObject / MediaVersion（media-library） | 稳定媒体身份、不可变版本、来源和谱系 | 新文件、派生或重新生成必须新建版本 |
-| ObjectBlob / MediaRendition（media-library） | 存储引用、内容/存储校验和；工具与配方版本 | Blob 为 `quarantined/active/pending_delete/deleted/delete_failed` |
+| MediaIngestRecord / ObjectBlob / MediaRendition（media-library） | 跨存储登记意图、存储引用、内容/存储校验和、工具与配方版本 | 摄取为 `copy_pending/verified/registered`；Blob 生命周期另为 `active/pending_delete/deleted/delete_failed` |
 | UploadSession / MediaTechnicalInspection（media-library） | 分片完成、恶意文件/格式/可解码性技术证据 | 技术失败保持隔离，不能解释为内容违规 |
 | ContentSafetyAssessment（compliance-governance） | 内容安全结论、证据和规则版本 | `pending/passed/review_required/blocked/error`；检查错误不等于通过 |
 | TimelineVersion / Track / ClipRef（postproduction） | 非破坏性编辑及对明确媒体版本的引用 | 已审核或已交付版本不得原位修改 |
@@ -81,8 +81,9 @@ flowchart LR
 3. 完成命令校验分片清单、长度、客户端校验和与存储证据；重放返回同一业务结果。
 4. 隔离 Worker 在无特权沙箱内执行文件头/真实 MIME、恶意载荷、解压炸弹、媒体可解码性和 `ffprobe` 摘要检查，设置 CPU、内存、磁盘和时限。
 5. 内容安全根据对象、用途、地区和规则版本输出通过、人工复核或阻断；检查服务故障不得记为通过。
-6. 全部必要门禁通过后，Worker 验证服务端复制结果再由应用用例原子登记 `MediaVersion` 与 Blob；隔离副本延迟清理。
-7. 代理、缩略图、波形和媒体摘要以原始校验和、规格、FFmpeg/字体版本和配方哈希幂等生成，任一输入变化形成新 Rendition。
+6. 全部门禁通过后，应用用例先以确定性目标 Key、预期校验和和操作键持久化 `MediaIngestRecord(copy_pending)`；Worker 在数据库事务外幂等复制对象，校验目标大小/校验和后标记 `verified`，再由独立应用事务创建 `MediaVersion/ObjectBlob`、写 Outbox 并标记 `registered`。对象复制与数据库登记从不宣称原子，隔离副本只在 `registered` 后延迟清理。
+7. 对账器按租约扫描 `copy_pending/verified`：目标存在且匹配时继续验证/登记，不存在时重做复制，不匹配时隔离并告警；重复 `copy/head/register` 均以操作键收敛。受管摄取前缀中超过安全等待窗且没有 IngestRecord、ObjectBlob 或活跃任务引用的目标对象按幂等清理作业删除并记录审计，避免崩溃留下孤儿 Blob。
+8. 代理、缩略图、波形和媒体摘要以原始校验和、规格、FFmpeg/字体版本和配方哈希幂等生成，任一输入变化形成新 Rendition。
 
 供应商结果必须由 Worker 通过允许的 HTTPS 域名拉取，限制 DNS/IP、重定向、长度、时间和输出类型，然后进入同一隔离流程；不将供应商 URL 保存为平台媒体地址。
 
@@ -161,7 +162,7 @@ flowchart LR
 
 设计阶段通过条件：评审数据流/信任边界、状态与唯一事实归属、文件契约示例、媒体格式/测试语料清单、保留策略矩阵和威胁模型；本阶段不要求已存在可运行代码。
 
-进入已接受 Plan 后的实施验收必须覆盖：分片重放/断点/校验和、伪造 MIME/恶意或畸形样本/资源耗尽、跨租户和 CDN 隔离、签名过期/撤销、扫描/KMS/存储降级、同快照重复渲染、交付校验、权利/个人数据请求、Legal Hold、跨系统删除对账和备份恢复后墓碑重放。
+进入已接受 Plan 后的实施验收必须覆盖：分片重放/断点/校验和、复制或登记各崩溃点的 `copy_pending→verified→registered` 对账与孤儿 Blob 清理、伪造 MIME/恶意或畸形样本/资源耗尽、跨租户和 CDN 隔离、签名过期/撤销、扫描/KMS/存储降级、同快照重复渲染、交付校验、权利/个人数据请求、Legal Hold、跨系统删除对账和备份恢复后墓碑重放。
 
 ## 12. 开源参考与评审未决项
 

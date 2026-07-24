@@ -20,14 +20,14 @@
 
 1. `Design`：先明确问题、约束、现状、目标架构、接口/数据契约、状态流、失败路径、权限、迁移和回滚；结论写入 `docs/design/`。
 2. `PRD`：基于已接受的 Design 固化用户价值、范围、非目标、用户故事、业务规则和可衡量验收标准；写入 `docs/prd/`。
-3. `Plan`：基于 Design 与 PRD 拆分实现、测试、依赖、风险和交付顺序；写入 `docs/plans/`。实现和验证只能在 Plan 可执行后开始。
-4. `Acceptance`：按 Design、PRD、Plan 逐项验证，记录命令、结果、证据、残余风险和结论；写入 `docs/acceptance/`。
+3. `Plan`：基于 Design 与 PRD 拆分实现、测试、依赖、风险和交付顺序；写入 `docs/plans/`。仅当 Design、PRD 和可执行 Plan 均为 `accepted` 后才能开始实现。
+4. `Acceptance`：实现完成后按 Design、PRD、Plan 逐项验证，记录命令、结果、证据、残余风险和结论；写入 `docs/acceptance/`，不得作为实现前置文档倒序补写。
 
 每一阶段必须声明输入、输出、状态和下游文档。上游变化时先更新受影响文档，再继续下游。`docs/operations/` 只承载验收后的发布、部署、回滚和运维说明，不增加核心流程阶段。
 
 ## 执行与验证
 
-1. 开始前定位适用的 Requirement、TCR、ADG，以及治理本任务的 Design、PRD、Plan 和 Acceptance；缺失或未接受的上游输入按流程补齐。
+1. 开始前定位适用的 Requirement、TCR、ADG，以及治理本任务的 Design、PRD 和 Plan；缺失或未接受的上游输入按流程补齐，实现后再建立并回填 Acceptance。
 2. 先复现当前行为或失败信号，并把证据与验收标准绑定。
 3. 功能或缺陷修复先提交可失败的 `test:` 约束，再用最小 `impl:`/`feat:` 使其通过，最后按需 `refactor:`。
 4. Red 必须证明需求尚未满足；Green 必须证明最小实现已满足验收。记录具体命令和结果，不写笼统的“已测试”。

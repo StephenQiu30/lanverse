@@ -4,14 +4,14 @@
 
 ## 需求分析入口
 
-`requirement/` 用于正式设计前的需求发现、平台范围、功能与质量要求、首发技术基线、前后端职责边界和设计准入门禁。需求分析以业务能力为主并共享一套事实源；适用规格达到 `accepted` 且通过 [`ADG-001`](requirement/ADG-001-前后端集成契约与设计完整性评审门禁.md) 后才能进入实现。
+`requirement/` 用于正式设计前的需求发现、平台范围、功能与质量要求、首发技术基线、前后端职责边界和设计准入门禁。需求分析以业务能力为主并共享一套事实源；适用 Requirement 达到 `accepted` 且通过 [`ADG-001`](requirement/ADG-001-前后端集成契约与设计完整性评审门禁.md) 的 `design_entry` 后，Design 才能转为 `accepted` 并进入 PRD。Requirement 与该门禁不单独授权实现。
 
 ## 核心流程
 
-1. `Design` 依据已接受的 Requirement 和技术约束，明确架构、契约、数据、运行、风险与可行方案，并通过 `ADG-001`。
-2. `PRD` 基于已接受的 Design 固化用户价值、范围、非目标和验收标准。
-3. `Plan` 基于 Design 与 PRD 拆分实现、测试、依赖和交付顺序；Plan 可执行后才能开始实现。
-4. `Acceptance` 对照前三阶段逐项验证并给出通过、风险接受或不通过结论。
+1. `Design` 可在 Requirement 评审期形成草案；转为 `accepted` 前，适用 Requirement 必须已接受且通过 `ADG-001` 的 `design_entry`。
+2. `PRD` 基于已接受的 Design 固化用户价值、范围、非目标和验收标准，并在实现前转为 `accepted`。
+3. `Plan` 基于 Design 与 PRD 拆分实现、测试、依赖和交付顺序；仅当 Design、PRD 和可执行 Plan 均为 `accepted` 后才能实现。
+4. `Acceptance` 是实现后的验证产物，对照前三阶段逐项记录证据并给出通过、风险接受或不通过结论。
 
 `operations/` 只承载验收后的发布、部署、回滚和运行手册，不是第五个核心阶段。
 
@@ -75,7 +75,7 @@
 ## 关联规则
 
 1. Requirement 是 Design 的需求输入；未确认的假设不能直接成为设计结论。
-2. Design 是 PRD 的上游，必须关联后续 PRD、Plan 和 Acceptance。
+2. Design 是 PRD 的上游，必须关联后续 PRD、Plan 和实现后 Acceptance。
 3. PRD 必须引用已接受的 Design，并关联后续 Plan 和 Acceptance。
 4. Plan 必须引用 Design 与 PRD，并关联验证它的 Acceptance。
 5. Acceptance 必须引用并逐项验收 Design、PRD 和 Plan。

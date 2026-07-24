@@ -4,7 +4,7 @@ doc_type: API Event File and Data Contract Architecture Design
 doc_no: ARCH-004
 title: API、事件、文件与数据契约设计
 status: review
-version: 0.2.0
+version: 0.2.1
 owner: Lanverse
 audience: [Architecture, Frontend, Backend, QA, Security, Operations, Data]
 feature_area: 前后端集成、事件传播、文件传输与数据生命周期
@@ -57,7 +57,7 @@ Lanverse 以 OpenAPI 3.1 作为 HTTP 契约源，以版本化 JSON Schema 定义
 | 重试任务 | `POST /v1/production-tasks/{task_id}:retry` | `production:task:retry`；幂等创建 RetryRequest，由原 Process Manager 重验预算/策略并新建 Attempt，不覆盖旧 Attempt |
 | 记录审核决定 | `POST /v1/review-rounds/{round_id}/decisions` | `review:decide`；追加写入且固定对象版本 |
 | 指定当前采用 | `POST /v1/shots/{shot_id}/adoptions` | `adoption:write`；与审核决定独立且唯一 |
-| 创建交付版本 | `POST /v1/projects/{project_id}/deliveries` | `delivery:create`；固定门禁证据并幂等 |
+| 创建交付版本 | `POST /v1/projects/{project_id}/deliveries`（`operationId: createDeliverySnapshot`） | `delivery:create`；映射 `delivery.createDeliverySnapshot`，固定门禁证据并幂等 |
 | 读取单体 | `GET /v1/{resource}/{id}` | 权限过滤；返回 ETag、版本和可执行动作 |
 | 读取列表 | `GET /v1/projects/{project_id}/production-tasks` | 过滤白名单、稳定排序和游标分页 |
 | 查询审计 | `GET /v1/audit-records?correlation_id=...` | 仅授权角色；内容按数据级别脱敏 |
@@ -94,14 +94,14 @@ components: {schemas: {Problem: {type: object, required: [type, title, status, c
 | --- | --- | --- |
 | 400/422 | `VALIDATION_FAILED`、`BUSINESS_GATE_BLOCKED` | 绑定字段或展示阻断及下一动作 |
 | 401/403/404 | `AUTH_REQUIRED`、`ACCESS_DENIED`、`RESOURCE_NOT_FOUND` | 清理过期会话；不推断对象存在性 |
-| 409/412 | `VERSION_CONFLICT`、`IDEMPOTENCY_KEY_REUSED`、`PREVIEW_STALE` | 刷新、比较或使用新键重提 |
+| 409/412 | `VERSION_CONFLICT`、`IDEMPOTENCY_KEY_REUSED`、`IDEMPOTENCY_IN_PROGRESS`、`PREVIEW_STALE` | 冲突时刷新/比较；处理中只按原键、原正文及 `Retry-After` 重试或轮询 `status_url` |
 | 413/415 | `FILE_TOO_LARGE`、`MEDIA_TYPE_NOT_ALLOWED` | 停止上传并保留可修正输入 |
 | 429/503 | `RATE_LIMITED`、`DEPENDENCY_UNAVAILABLE` | 仅在 `retryable=true` 时按 `Retry-After` 重试 |
 
 ## 7. 幂等、并发与分页
 
-- 任务、上传会话、费用、交付及其他可重放命令要求 `Idempotency-Key`；作用域为 `workspace + subject + operation + target`，并保存规范化请求哈希、状态、资源标识和响应摘要。
-- 同键同哈希返回原业务结果；同键异哈希返回 `409 IDEMPOTENCY_KEY_REUSED`；处理中重放返回原任务或 `409 IDEMPOTENCY_IN_PROGRESS`，不得启动第二副作用。
+- 任务、上传会话、费用、交付及其他可重放命令要求 `Idempotency-Key`；统一作用域为 `workspace_id + subject_id + operation_id + target_scope + idempotency_key`，其中 `target_scope` 使用稳定目标标识，创建类命令使用明确集合标识；同时保存规范化请求哈希、状态、资源标识和响应摘要。
+- 同键同哈希已有可寻址资源时返回原成功/受理状态、响应摘要及同一 `Location`；尚未形成资源时返回 HTTP `409 IDEMPOTENCY_IN_PROGRESS`、`retryable: true`、`Retry-After`，并在可用时给出安全的 `metadata.status_url`，不得启动第二副作用。客户端只可在等待后以同一键和完全相同正文重试，或轮询 `status_url`；网络超时和处理中响应不得自动生成新键，只有用户明确发起新的逻辑操作且原操作已收敛后才能换键。同键异哈希返回 `409 IDEMPOTENCY_KEY_REUSED`。
 - 普通键至少保留 24 小时；账本、正式交付和其他不可逆动作的去重证据随事实保留。具体上限在容量设计确认，不得短于客户端可重试窗口。
 - 可并发修改资源必须使用强 ETag/资源版本和 `If-Match`；冲突返回 `412 VERSION_CONFLICT` 与最新安全版本，不静默最后写入覆盖。
 - 列表响应为 `items/next_cursor/has_more`；默认 50、最大 200，先执行租户与权限过滤，再按稳定元组排序，默认 `created_at DESC, id DESC`。
@@ -156,7 +156,7 @@ P0 仅接收供应商回调；客户自定义出站 Webhook 不在首发范围�
 
 ### 12.1 概念唯一约束与访问索引
 
-- 唯一约束至少覆盖：`workspace_id + aggregate + version`；每分集/类型唯一当前基线；每采用作用域唯一 active Adoption；`workspace_id + operation + target + idempotency_key`；`task + attempt_no`；`attempt_id + output_slot`；`metering_event_id`；供应请求、Outbox `event_id` 与 Inbox `consumer + event_id` 去重。
+- 唯一约束至少覆盖：`workspace_id + aggregate + version`；每分集/类型唯一当前基线；每采用作用域唯一 active Adoption；`workspace_id + subject_id + operation_id + target_scope + idempotency_key`；`task + attempt_no`；`attempt_id + output_slot`；`metering_event_id`；供应请求、Outbox `event_id` 与 Inbox `consumer + event_id` 去重。
 - 主访问索引以 `workspace_id` 为首列，覆盖 Task `(status, created_at, id)`、Attempt `(task_id, created_at, id)`、Outbox `(state, next_attempt_at, id)`、审计 `(occurred_at, id)/(correlation_id)`、稳定游标排序、MediaUsageProjection 反向引用及 DeletionCase/LegalHold 发现；物理索引须经 Plan 中的查询与容量基准确认。
 
 ## 13. 版本、弃用与发布兼容
@@ -196,4 +196,4 @@ P0 仅接收供应商回调；客户自定义出站 Webhook 不在首发范围�
 | Implementation | `VAL-ARCH-004-FILE`：分片断点、哈希不符、伪造类型、病毒样本、授权过期、范围读取、隔离和删除传播通过 |
 | Implementation | `VAL-ARCH-004-LIFECYCLE`：跨租户拒绝、导出/删除/保留例外、审计完整性及缓存/投影重建形成 Acceptance 证据 |
 
-设计验收项：AC-ARCH-004-001～006 分别对应 HTTP/OpenAPI、错误与幂等、SSE/事件、Webhook/Outbox、文件/数据生命周期、兼容/追踪。当前仅形成 `review` 规则、目录和代表性模板，不代表完整契约、测试或实现已完成；进入实现仍须 Design 被接受并完成 `PRD → Plan`。
+设计验收项：AC-ARCH-004-001～006 分别对应 HTTP/OpenAPI、错误与幂等、SSE/事件、Webhook/Outbox、文件/数据生命周期、兼容/追踪。当前仅形成 `review` 规则、目录和代表性模板，不代表完整契约、测试或实现已完成；只有 Design、PRD 和可执行 Plan 均为 `accepted` 后才能实现。

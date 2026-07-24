@@ -4,18 +4,18 @@ doc_type: Functional Requirements Specification
 doc_no: FR-018
 title: 内容权利、安全与 AI 标识合规
 status: review
-version: 1.0.0
+version: 1.1.0
 owner: Lanverse
 audience: [PM, Product, Architecture, Dev, QA, Legal, Governance]
 feature_area: 内容权利安全与AI标识合规
 purpose: 定义权利证据、安全检查、AI标识和备案许可门禁要求
 canonical_path: docs/requirement/FR-018-内容权利安全与AI标识合规需求规格说明书.md
 inputs: [SRS-001, 适用法规与标准, 适用渠道规则]
-outputs: [合规功能需求, 强制门禁规则, 验收标准]
+outputs: [RightsDeclaration.v1, ComplianceEvidenceManifest.v1, 合规功能需求, 强制门禁规则, 验收标准]
 triggers: [法规或标准变更, 发行地区变更, 渠道规则变更, 权利模型变更]
 priority: P0
 updated: 2026-07-24
-downstream: [权利治理 Design, 内容安全 PRD, AI 标识 PRD, Acceptance]
+downstream: [权利治理 Design, 内容安全 PRD, AI 标识 PRD, 合规 Plan, Acceptance]
 ---
 
 # FR-018 内容权利、安全与 AI 标识合规需求规格说明书
@@ -56,6 +56,8 @@ downstream: [权利治理 Design, 内容安全 PRD, AI 标识 PRD, Acceptance]
 | FR-018-014 | 系统应根据发行地区、内容类别、制作主体和渠道确定适用的审核层级、备案或许可材料要求。 | P0 |
 | FR-018-015 | 系统应记录制作主体、内容分类、审核结论、备案号或许可证号、证明文件、适用渠道和有效状态。 | P0 |
 | FR-018-016 | 系统应在适用备案或许可材料缺失、未知、失效或待复核时阻止正式交付。 | P0 |
+| FR-018-017 | 系统应由合规事实所有者发布不可变的 `RightsDeclaration.v1` 版本；声明变更必须创建新版本，历史引用不得被当前状态覆盖。 | P0 |
+| FR-018-018 | 系统应为每次合规判断发布不可变的 `ComplianceEvidenceManifest.v1`，固定被判断内容、权利声明、规则、检查、复核、AI 标识及备案许可证据的明确版本。 | P0 |
 
 ## 4. 业务规则
 
@@ -66,6 +68,8 @@ downstream: [权利治理 Design, 内容安全 PRD, AI 标识 PRD, Acceptance]
 - BR-018-005：AI 标识要求应同时考虑用户可见标识和机器可识别标识。
 - BR-018-006：规则变化不改写历史结论，但应触发尚未交付或再次交付内容的重新判断。
 - BR-018-007：备案或许可字段仅在适用地区、类别和渠道下成为强制门禁，不得把地区规则错误套用到所有项目。
+- BR-018-008：`compliance-governance` 是权利声明、合规判断和合规证据清单的唯一事实所有者；来源、媒体、任务、审核和交付模块只拥有各自对象事实及合规引用。
+- BR-018-009：合规证据消费者只能按清单标识和版本读取结果，不得跨域修改声明、规则、检查或复核事实。
 
 ## 5. 数据要求
 
@@ -74,6 +78,8 @@ downstream: [权利治理 Design, 内容安全 PRD, AI 标识 PRD, Acceptance]
 - DR-018-003：保存检查输入、结果、命中项、复核、申诉、处置和标识写入证据。
 - DR-018-004：交付清单必须引用固定的内容版本和规则版本。
 - DR-018-005：保存内容分类、制作主体、审核层级、备案或许可材料、适用渠道和有效性历史。
+- DR-018-006：`RightsDeclaration.v1` 至少包含 `declaration_id`、`declaration_version`、`subject_ref`、工作空间、权利主体、允许用途、地区、渠道、有效期、撤回状态和证据引用。
+- DR-018-007：`ComplianceEvidenceManifest.v1` 至少包含 `manifest_id`、`manifest_version`、`content_ref`、规则版本、权利声明版本引用、检查/复核/标识/备案许可证据引用、门禁结论、判断时间和失效时间。
 
 ## 6. 异常与恢复
 
@@ -84,6 +90,7 @@ downstream: [权利治理 Design, 内容安全 PRD, AI 标识 PRD, Acceptance]
 | 人工复核发生分歧 | 保持阻断或待复核状态，交由指定责任人裁决。 |
 | 标识写入或验证失败 | 阻止正式交付并保留失败证据。 |
 | 适用备案或许可材料无法核验 | 保持未知或待复核，不得解释为已满足。 |
+| 声明或证据契约版本未知、引用缺失或对象版本不匹配 | 返回不可判定并保持强制门禁，不回退读取模块当前状态。 |
 
 ## 7. 验收标准
 
@@ -93,6 +100,7 @@ downstream: [权利治理 Design, 内容安全 PRD, AI 标识 PRD, Acceptance]
 - AC-018-004：权利到期后，历史交付记录仍可查询，新交付被阻断。
 - AC-018-005：任一交付版本均可导出其权利依据、规则版本、检查结论和 AI 标识证据。
 - AC-018-006：要求备案号或许可证号的发行目标缺少有效材料时，正式交付被阻断并显示责任人和补充项。
+- AC-018-007：权利声明更新后，既有 `ComplianceEvidenceManifest.v1` 仍引用原声明版本并可审计；新的交付判断必须生成或选择引用新声明版本的新证据清单。
 
 ## 8. 合规依据
 
@@ -101,6 +109,8 @@ downstream: [权利治理 Design, 内容安全 PRD, AI 标识 PRD, Acceptance]
 - [《互联网信息服务深度合成管理规定》](https://www.cac.gov.cn/2022-12/11/c_1672221949354811.htm)
 - [国家广播电视总局办公厅关于进一步统筹发展和安全促进网络微短剧行业健康繁荣发展的通知](https://www.nrta.gov.cn/art/2025/2/5/art_113_70148.html)
 
-## 9. 依赖
+## 9. 契约边界与依赖方向
 
-依赖 [FR-003](FR-003-原始内容导入事件理解与创作立项需求规格说明书.md)、[FR-007](FR-007-媒体资产版本与生成谱系需求规格说明书.md)、[FR-010](FR-010-AI制作任务编排与异常恢复需求规格说明书.md)、[FR-016](FR-016-协作审片审核与批准需求规格说明书.md) 和 [FR-019](FR-019-成片技术质检导出与交付需求规格说明书.md)。
+本规格的上游规范输入仅为 [SRS-001](SRS-001-AI短剧制作平台总体需求规格说明书.md)、适用法规与标准和适用渠道规则。来源、媒体、任务、审核及交付对象通过共享 `subject_ref` 引用进入评估，不构成本规格对其内部模型或需求文档的反向依赖。
+
+`compliance-governance` 独立拥有 `RightsDeclaration.v1` 与 `ComplianceEvidenceManifest.v1`，并通过版本化公开查询或事件提供不可变结果；交付等消费者只保存 `manifest_id + manifest_version`。消费者不可要求本模块读取其内部表，也不可借交付状态反向改写合规证据，因此需求与实现依赖均保持单向。

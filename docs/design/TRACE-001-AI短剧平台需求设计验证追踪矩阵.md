@@ -4,7 +4,7 @@ doc_type: Requirements Design Verification Traceability Matrix
 doc_no: TRACE-001
 title: AI短剧平台需求设计验证追踪矩阵
 status: review
-version: 0.2.0
+version: 0.2.1
 owner: Lanverse
 audience: [Product, Architecture, Frontend, Backend, QA, Security, Operations, Governance]
 feature_area: 需求、设计与验证追踪
@@ -71,7 +71,7 @@ downstream: [PRD, Plan, Test, Acceptance]
 
 ## 4. 评审与变更规则
 
-- 当前全部映射处于 `review`；仅在 A1～A7、ADR-001～ADR-002、需求状态和未决 P0 决策完成评审后，才能形成 `design_entry` 结论。
+- 当前全部映射处于 `review`；仅在适用 SRS、FR、NFR、TCR 与 ADG 均为 `accepted`，且 A1～A7、ADR-001～ADR-002 和未决 P0 决策完成评审后，才能形成 `design_entry` 结论。
 - 任一需求新增、删除、优先级或语义变化时，先把相关行改为 `partial`，列出缺口，再更新设计；禁止仅修改总范围文字。
 - 每次门禁随机抽取至少一条身份权限、一条长任务、一条媒体生命周期、一条费用和一条交付需求，从原需求逐跳核对至设计与拟定验证。
-- PRD、Plan 和 Acceptance 建立后在本矩阵增补版本链接；测试失败或残余风险不能以 `covered` 掩盖，须记录到对应 Acceptance。
+- PRD、Plan 及实现后的 Acceptance 建立时在本矩阵增补版本链接；测试失败或残余风险不能以 `covered` 掩盖，须记录到对应 Acceptance。

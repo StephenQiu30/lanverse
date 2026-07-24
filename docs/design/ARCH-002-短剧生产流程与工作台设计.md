@@ -4,7 +4,7 @@ doc_type: Product Workflow and Frontend Architecture Design
 doc_no: ARCH-002
 title: 短剧生产流程与工作台设计
 status: review
-version: 0.4.0
+version: 0.4.1
 owner: Lanverse
 audience: [Product, UX, Architecture, Frontend, Backend, QA, Creative]
 feature_area: 短剧生产流程与创作工作台
@@ -68,20 +68,20 @@ flowchart LR
 | --- | --- | --- | --- |
 | 项目大厅 | ProjectList / createProject | 空态引导创建；离线仅展示已缓存清单 | 镜头生产细节 |
 | 项目总览 | ProjectFlowSummary / 无跨域写命令 | 空分集引导创建；卡片失败可独立重查 | 直接改写各模块事实 |
-| 来源与事件工作台 | SourceRevision、EventProposal / resolveEvent | 无来源引导导入；版本冲突比较后重载/另存 | 自动决定改编取舍 |
-| 剧本工作台 | PlanningArtifact、ScriptVersion / confirmBaseline | 无草稿引导创建；ETag 冲突比较，确认失败不改基线 | 分镜图和媒体生成 |
-| 分镜列表 | ShotList、PreparationSummary / reorderShots | 空态引导拆镜；分页局部失败保留已载入项并重查 | 单镜头候选的深度确认 |
-| 镜头准备页 | ShotPreparationSnapshot / resolveCandidate | 无提取结果引导提取；过期/冲突刷新快照后比较 | 图片/视频任务主操作 |
+| 来源与事件工作台 | SourceRevision、EventProposal / importSource、proposePlan | 无来源引导导入；版本冲突比较后重载/另存 | 自动决定改编取舍 |
+| 剧本工作台 | PlanningArtifact、ScriptVersion / saveScriptDraft、confirmScriptBaseline | 无草稿引导创建；ETag 冲突比较，确认失败不改基线 | 分镜图和媒体生成 |
+| 分镜列表 | ShotList、PreparationSummary / 无写命令（导航至准备页） | 空态引导拆镜；分页局部失败保留已载入项并重查 | 单镜头候选的深度确认 |
+| 镜头准备页 | ShotPreparationSnapshot / resolveExtractionCandidate、bindShotAsset | 无提取结果引导提取；过期/冲突刷新快照后比较 | 图片/视频任务主操作 |
 | 分集生成工作室 | GenerationReadiness、Preview、GenerationRequest/Task / requestGeneration | 阻断项深链负责页；SSE 断线以游标续接和权威查询收敛 | 绕过预算/合规/准备度直接 createTask |
-| 资产工作台 | AssetCatalog、MediaUsageProjection / bindAssetVersion | 空态引导建资产；受限/失效版本禁止绑定并重查使用位置 | 叙事事实裁决 |
-| 任务中心 | ProductionTaskProjection / cancel、retry | 空态说明无任务；游标失效查询快照，unknown 提供对账入口 | 提示词调试、审核或业务编辑 |
-| 候选审片室 | GenerationCandidate、ReviewRound / decide、adopt | 无提交显示来源入口；固定版本失效阻止决定并重开轮次 | 修改生成输入 |
-| 后期时间线 | TimelineVersion、ProxyManifest / save、render | 空态建时间线；代理失败保留位置，冲突比较/另存版本 | 改写上游候选和镜头基线 |
-| 交付中心 | DeliveryGateSummary / createDelivery | 空态列前置项；门禁失败定位证据，部分导出返回原快照 | 创作编辑 |
-| 平台设置 | WorkspacePolicy、CapabilityManifest / publishPolicy | 空配置使用受控默认；ETag 冲突重载，越权不暴露敏感值 | 项目内容生产 |
-| Agent 协作面板 | AgentRun、AgentReview / start、cancel、decideCandidate | 空态选择结构化目标；切页/断线后按原作用域回查运行 | 绕过领域命令直接改正式事实 |
+| 资产工作台 | AssetCatalog、MediaUsageProjection / bindProjectAsset | 空态引导建资产；受限/失效版本禁止绑定并重查使用位置 | 叙事事实裁决 |
+| 任务中心 | ProductionTaskProjection / requestCancellation、requestRetry | 空态说明无任务；游标失效查询快照，unknown 提供对账入口 | 提示词调试、审核或业务编辑 |
+| 候选审片室 | GenerationCandidate、ReviewRound / recordDecision、adoptVersion | 无提交显示来源入口；固定版本失效阻止决定并重开轮次 | 修改生成输入 |
+| 后期时间线 | TimelineVersion、ProxyManifest / saveTimeline、requestRender | 空态建时间线；代理失败保留位置，冲突比较/另存版本 | 改写上游候选和镜头基线 |
+| 交付中心 | DeliveryGateSummary / createDeliverySnapshot | 空态列前置项；门禁失败定位证据，部分导出返回原快照 | 创作编辑 |
+| 平台设置 | WorkspacePolicy、CapabilityManifest / publishRoutingPolicy | 空配置使用受控默认；ETag 冲突重载，越权不暴露敏感值 | 项目内容生产 |
+| Agent 协作面板 | AgentRun、AgentReview / startAgentRun、cancelAgentRun、recordDecision | 空态选择结构化目标；切页/断线后按原作用域回查运行 | 绕过领域命令直接改正式事实 |
 
-上述每页都必须实现 loading 骨架、可行动 empty、不可枚举 unauthorized、带 request_id 的 error/retry、offline 只读或保留未保存稿、conflict 比较/重载/另存及恢复后权威重查。`ProjectFlowSummary` 由后端生成，主动作只导航到事实负责页。
+上述写命令逐字使用 ARCH-007 的 canonical command；页面可显示本地化动作文案，但不得另造 API operation 别名。每页都必须实现 loading 骨架、可行动 empty、不可枚举 unauthorized、带 request_id 的 error/retry、offline 只读或保留未保存稿、conflict 比较/重载/另存及恢复后权威重查。`ProjectFlowSummary` 由后端生成，主动作只导航到事实负责页。
 
 ## 4. 页面导航模型
 

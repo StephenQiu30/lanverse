@@ -4,7 +4,7 @@ doc_type: Solution Architecture Design
 doc_no: ARCH-001
 title: AI短剧制作平台总体架构设计
 status: review
-version: 0.4.0
+version: 0.4.1
 owner: Lanverse
 audience: [Product, Architecture, Frontend, Backend, QA, Security, Operations]
 feature_area: AI短剧制作平台总体架构
@@ -31,7 +31,7 @@ Lanverse 首发采用统一 monorepo、模块化单体控制面和独立 Worker�
 - Git 根目录已统一为 `Lanverse/`，原 `lanverse-backend/` 子目录已移除。
 - 当前只有治理和正式文档，无应用源码、依赖清单、数据库或部署制品。
 - 技术基线由 [TCR-001](../requirement/TCR-001-平台技术栈与总体架构约束需求规格说明书.md) 固定；本设计不得降低 NFR、权限、版本、成本、合规和交付要求。
-- 正式实现只能在 Design、PRD 被接受且 Plan 可执行后开始；实现完成后再以运行证据回填 Acceptance。
+- 正式实现只能在 Design、PRD 和可执行 Plan 均为 `accepted` 后开始；实现完成后再以运行证据回填并验证 Acceptance。
 
 ## 3. 目标与非目标
 
@@ -181,4 +181,4 @@ Lanverse/
 
 ## 13. 评审门禁与未决项
 
-进入 PRD 前必须确认：首发部署地区、身份提供商、S3/Temporal/PostgreSQL 托管方案、容量基线和媒体规格，并完成 ARCH-001～ARCH-007、TRACE-001、[ADR-001](ADR-001-首发平台架构与仓库边界.md) 与 [ADR-002](ADR-002-业务模块拆分与依赖方向.md) 的设计准入评审。进入实现前还须完成可执行 Plan，并通过 [ADG-001](../requirement/ADG-001-前后端集成契约与设计完整性评审门禁.md) 的实施准入。
+进入 PRD 前必须确认：首发部署地区、身份提供商、S3/Temporal/PostgreSQL 托管方案、容量基线和媒体规格，并完成 ARCH-001～ARCH-007、TRACE-001、[ADR-001](ADR-001-首发平台架构与仓库边界.md) 与 [ADR-002](ADR-002-业务模块拆分与依赖方向.md) 的 `design_entry` 评审。进入实现前，适用 Requirement、Design、PRD 和可执行 Plan 必须均为 `accepted`；`implementation_release` 只在实现和 Acceptance 证据完成后作为发布门禁执行。

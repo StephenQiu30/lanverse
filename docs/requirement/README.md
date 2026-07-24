@@ -46,6 +46,10 @@
 - 每条需求只表达一个可独立验证的义务；业务与质量需求使用“系统应”，技术约束使用“必须”，门禁使用明确“通过条件”。
 - 已接受的技术族、职责边界和工程门禁写入 TCR；页面、接口字段、数据库表、工作流拆分、模型与供应商选择等实现细节仍由 Design 和 ADR 固化。
 - 文档状态遵循 `draft → review → accepted → archived`；只有 `accepted` 能作为 Design 和 PRD 的正式输入。
-- 正式实现开始前，适用需求必须满足 [ADG-001](ADG-001-前后端集成契约与设计完整性评审门禁.md)；技术基线变更不得只修改代码或锁文件。
+- Requirement 与 `design_entry` 只授权 Design 转为 `accepted` 并进入 PRD，不单独授权实现。
 - 上游变化形成新版本并把下游对象标记为 `stale/待复核`，不得静默覆盖、删除或自动重做。
 - 各文档“依赖”章节表示业务运行中的相关能力与协作关系，不表示单向文档派生或具体技术依赖。
+
+## 完整实现准入
+
+实现开始前必须同时满足：适用 SRS、FR、NFR、TCR 与 ADG 均为 `accepted`；适用 Design（含全平台基线 ARCH-001～ARCH-007 与相关 ADR）已通过 `design_entry` 并为 `accepted`；PRD 为 `accepted`；Plan 为 `accepted`、可执行且已追踪实现、测试、迁移和回滚。任一条件缺失均不得以代码、测试或 Acceptance 倒推补齐；Acceptance 只在实现完成后记录执行证据与结论。

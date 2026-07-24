@@ -4,7 +4,7 @@ doc_type: Backend Data and Workflow Architecture Design
 doc_no: ARCH-003
 title: AI策划、生成准备与异步任务架构设计
 status: review
-version: 0.4.0
+version: 0.4.1
 owner: Lanverse
 audience: [Architecture, Backend, Frontend, QA, Security, Operations, Data]
 feature_area: 来源事件、Agent策划、镜头生成准备、任务编排与媒体谱系
@@ -44,7 +44,7 @@ Toonflow 固定提交证据分列为[事件提取](https://github.com/HBAI-Ltd/T
 | ProjectAssetBinding | 项目对明确资产版本的授权关系 | creative-assets |
 | ShotAssetBinding | 镜头对明确资产版本的有序引用 | storyboard |
 | GenerationDraft/ContextSnapshot | 可编辑意图与服务端解析的版本化上下文 | generation |
-| DerivedPreview/SubmissionSnapshot | 编译预览与实际提交输入的不可变快照、哈希和策略 | generation |
+| DerivedPreview/SubmissionSnapshot/GenerationRequestProcess | 编译预览、不可变提交输入，以及持久化 Saga 进度、租约、稳定幂等键和补偿结果 | generation |
 | ProductionTask/ProductionAttempt | 用户目标、预算引用与每次不可覆盖的供应执行事实 | production-jobs |
 | BudgetHold/LedgerEntry | 预算预占、结算、释放、退款和冲正的追加式账本事实 | cost-billing |
 | GenerationCandidate | 一次生产尝试产生的创意候选，引用明确 MediaVersion 和质量信号 | generation |
@@ -120,26 +120,25 @@ sequenceDiagram
     participant T as Temporal
     participant K as Backend Worker
     participant M as media-library
-    G->>C: reserveBudget(idempotency_key)
+    G->>G: Tx: Submission + request + Saga(requested) + Outbox
+    O->>G: Deliver request event through idempotent Inbox
+    G->>C: reserveBudget(saga_id:reserve)
     C-->>G: hold_id or reject
-    G->>G: Tx: Submission + request + Outbox
-    G->>J: createTask(submission_ref, hold_ref)
-    J->>J: Tx: Task + Outbox
-    O->>T: Start stable workflow_id idempotently
+    G->>G: Persist hold_reserved and recovery lease
+    G->>J: createTask(idem=saga_id:create_task, refs)
+    J->>J: Tx: accept Task + production.task.changed.v1 Outbox
+    J-->>G: task_id only after commit
+    G->>G: Persist task_accepted
+    O->>T: On created transition, start workflow_id=task_id
     T->>K: Execute/reconcile provider Activity
-    K->>J: recordProviderResult(normalized_usage)
-    J->>J: Tx: Result + metering event; Attempt postprocessing
+    K->>J: recordProviderResult + metering event
     K->>C: settleUsage(metering_event_id) or releaseHold
-    C->>C: Tx: LedgerEntry + event
     K->>M: registerMedia(provider_result)
-    M->>M: Tx: MediaVersion + event
     K->>G: registerCandidate(media_version_id)
-    G->>G: Tx: GenerationCandidate + event
     K->>J: finalizeAttempt(output_refs)
-    J->>J: Tx: Attempt + Task terminal transition
 ```
 
-API 在完成预占和 Task 创建后返回 `202 task_id`，并用已提交事件提供可续接 SSE。每个 `Tx` 只写所属模块；有效计量独立结算，媒体/候选失败不伪造免费，按规则追加退款或补偿。Attempt 仅在所需输出登记后终结；受理失败保持 `waiting_platform` 并由租约释放孤立 Hold。Workflow 只编排 Activity，API/Worker 均调用公开用例。
+`GenerationRequestProcess` 是持久化 Saga/Process Manager，`saga_id = generation_request_id`，状态按 `requested→hold_reserved→task_accepted` 或 `failed/manual_action_required` 推进；预算、建任务和释放分别固定 `saga_id:reserve`、`saga_id:create_task`、`saga_id:release`，每步单模块事务记录结果与 Outbox/Inbox。请求事务提交后 API 可立即驱动同一 Process Manager，Outbox 重投和带 fencing token 的租约扫描负责并发去重与崩溃恢复；API 只在预占成功且 `createTask` 已提交并返回同一 `task_id` 后响应 `202`。Task 接受前禁止启动 Workflow，接受后仅由 `production.task.changed.v1` 的 created 转换以 `workflow_id=task_id` 幂等启动。任意提交点崩溃后先按 `saga_id` 查询/重放预占、`createTask` 幂等回执和 Task：回执 accepted 即恢复 Task，明确 rejected 或在无在途租约时确认未受理才以 `saga_id:release` 释放 Hold；`in_progress/unknown` 转人工处置并保留或续租 Hold，绝不因超时或暂时查无 Task 直接释放；已有 Task 时则重投启动事件并对账。有效计量独立结算，媒体/候选失败按规则追加退款或补偿；Attempt 仅在所需输出登记后终结，Workflow 只编排调用公开用例的 Activity。
 
 ## 9. 状态、取消与恢复
 
@@ -191,8 +190,8 @@ API 在完成预占和 Task 创建后返回 `202 task_id`，并用已提交事�
 
 - AC-ARCH-003-001：事件、策划和 Agent 产物可反查来源证据、输入版本、模型、Prompt/Skill、工具、费用、复核与人工决定。
 - AC-ARCH-003-002：Preview 与 Submission 逐字段一致；输入变化得到 `PREVIEW_STALE`。
-- AC-ARCH-003-003：重复创建、Outbox、回调和 Worker 重启不产生重复 Task、扣费或 Adoption。
-- AC-ARCH-003-004：取消、超时、未知、迟到结果和部分失败均可恢复到可判断状态。
+- AC-ARCH-003-003：在请求、预占、建 Task、Task 接受和 Workflow 启动前后逐点注入崩溃，重投仍只产生一个 Task、一个有效 Hold 和一个 Workflow，不重复扣费或 Adoption。
+- AC-ARCH-003-004：Task 明确未受理的孤立 Hold 可幂等释放，受理不明时不得误释放；Task 已接受但 Workflow 未启动可重投恢复，取消、超时、未知、迟到结果和部分失败均收敛到可判断状态。
 - AC-ARCH-003-005：任一候选媒体可追溯至来源、Script/Shot、资产、AgentRun、Task/Attempt、模型、费用和审核。
 - AC-ARCH-003-006：删除缓存、Agent 记忆、画布和 Temporal 可见性后，仍可由 PostgreSQL 与对象存储重建业务视图。
 
