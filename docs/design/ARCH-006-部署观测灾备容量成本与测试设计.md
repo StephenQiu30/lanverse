@@ -4,13 +4,13 @@ doc_type: Operations and Quality Architecture Design
 doc_no: ARCH-006
 title: 部署观测灾备容量成本与测试设计
 status: review
-version: 0.1.0
+version: 0.2.0
 owner: Lanverse
 audience: [Architecture, Frontend, Backend, QA, Security, Operations, FinOps, Governance]
 feature_area: 部署、可观测性、灾备、容量、成本与质量工程
 purpose: 定义平台从构建到运行的环境拓扑、服务等级、恢复、容量成本、发布回滚和验证设计
 canonical_path: docs/design/ARCH-006-部署观测灾备容量成本与测试设计.md
-inputs: [SRS-001, FR-010, FR-017, FR-019, FR-020, NFR-001, TCR-001, TCR-002, TCR-003, ADG-001]
+inputs: [SRS-001, FR-010, FR-017, FR-019, FR-020, NFR-001, TCR-001, TCR-002, TCR-003, ADG-001, ARCH-007]
 outputs: [环境与部署拓扑, CI/CD与迁移策略, 观测与告警, 灾备方案, 容量成本模型, 测试策略, 发布回滚与运行手册]
 triggers: [服务等级变化, 区域或云平台确定, 容量假设变化, 部署边界变化, 成本异常, 重大事故]
 updated: 2026-07-24
@@ -21,9 +21,9 @@ downstream: [PRD, Plan, Acceptance, Operations, ADR]
 
 ## 1. 设计结论与边界
 
-首发采用统一源码版本、三个独立制品族：`frontend`、`backend-api`、`backend-worker-*`。API、Workflow 与 Worker 位于同一 `backend/` 代码库，但使用独立入口、任务队列、权限、资源池和扩缩策略；任何制品失败不得要求同步扩容或重启其他制品。
+首发采用统一源码版本和 [ARCH-007](ARCH-007-业务模块边界与服务协作设计.md) 规定的独立运行制品：`frontend`、API、Outbox Dispatcher、Workflow Worker、AI/媒体/运营 Activity Worker 与 Migration Job。它们共享 `backend/` 领域规则但使用独立入口、队列、权限、资源池和扩缩策略；任何制品失败不得要求同步扩容或重启其他制品。
 
-本设计固定供应商中立的运行约束和已接受的 Temporal 技术族，不提前选择云厂商、首发地区、容器编排或 IaC 产品。地区、托管服务、网络产品与基线规模须在容量输入确认后通过 ADR 接受。当前文档只形成 Design 评审输入，不代表已部署、已压测或已达到 SLO。
+本设计固定供应商中立的运行约束和待评审的 Temporal 技术族，不提前选择云厂商、首发地区、容器编排或 IaC 产品。地区、托管服务、网络产品与基线规模须在容量输入确认后通过 ADR 接受。当前文档只形成 Design 评审输入，不代表已部署、已压测或已达到 SLO。
 
 ## 2. 环境与生产拓扑
 
@@ -41,15 +41,17 @@ flowchart TB
     F --> A["backend-api · NestJS"]
     A --> P[("PostgreSQL · 多可用区")]
     A --> R[("Redis · 易失缓存")]
-    O["Outbox Dispatcher"] --> P
+    O["backend-outbox-dispatcher"] --> P
     O --> T["Temporal"]
-    T --> W1["AI Worker 池"]
-    T --> W2["媒体 Worker 池"]
-    T --> W3["通知/运营 Worker 池"]
+    T --> C["backend-workflow-worker"]
+    C --> W1["AI Activity Worker 池"]
+    C --> W2["媒体 Activity Worker 池"]
+    C --> W3["运营支撑 Activity Worker 池"]
+    M["backend-migration-job"] --> P
     A --> S[("S3 兼容对象存储")]
     W1 --> S
     W2 --> S
-    F & A & W1 & W2 & W3 --> X["OpenTelemetry Collector"]
+    F & A & O & C & W1 & W2 & W3 & M --> X["OpenTelemetry Collector"]
 ```
 
 - `frontend` 与 API 无共享进程状态；静态资源使用内容哈希，服务端会话通过受控后端校验。
@@ -63,7 +65,7 @@ flowchart TB
 | 阶段 | 强制门禁 | 产物/证据 |
 | --- | --- | --- |
 | 变更检查 | 冻结安装、格式/静态/类型、单元/集成/契约测试、OpenAPI 兼容检查、迁移检查、安全/许可/密钥扫描 | 可复现日志和失败定位 |
-| 构建 | 分别构建前端、API 和 Worker OCI 制品；生成 SBOM、签名、来源证明 | 提交、锁文件、契约和制品摘要绑定的发布清单 |
+| 构建 | 分别构建前端、API、Dispatcher、Workflow/Activity Worker 和 Migration OCI 制品；生成 SBOM、签名、来源证明 | 提交、锁文件、契约和制品摘要绑定的发布清单 |
 | 预发布 | IaC 计划审批、迁移演练、部署、冒烟、代表性 E2E 与性能抽样 | 环境差异、测试和审批记录 |
 | 生产 | 数据兼容确认后金丝雀或滚动发布，按 API/Worker 兼容矩阵推进前端 | 发布人、时间、配置版本、指标和回滚点 |
 
@@ -133,7 +135,7 @@ P1 告警表示用户关键流程大面积不可用、数据/费用/安全风险
 
 | 层次 | 设计范围 | 实施后证据 |
 | --- | --- | --- |
-| 静态与单元 | 类型、领域规则、状态机、幂等、计价、迁移与安全规则 | CI 报告、变异/覆盖率的风险解释 |
+| 静态与单元 | 类型、领域规则、状态机、幂等、计价、迁移、安全及 ARCH-007 模块依赖规则 | CI 报告、依赖图、变异/覆盖率的风险解释 |
 | 组件与集成 | 前端组件；真实 PostgreSQL、Redis、Temporal、对象存储等价环境 | 可重复测试、数据库隔离和清理证据 |
 | 契约 | OpenAPI、SSE、事件、回调、Adapter、媒体清单及前后版本兼容 | 生产者/消费者契约和旧制品兼容报告 |
 | E2E/样片 | 登录→导入→分镜→生成→断线恢复→审核→费用→导出 | 代表性 180 秒样片、浏览器/网络矩阵和追踪证据 |

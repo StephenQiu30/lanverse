@@ -4,13 +4,13 @@ doc_type: Media Security Privacy and Data Lifecycle Architecture Design
 doc_no: ARCH-005
 title: 媒体安全、隐私与数据生命周期设计
 status: review
-version: 0.1.0
+version: 0.2.0
 owner: Lanverse
 audience: [Architecture, Backend, Frontend, QA, Security, Privacy, Governance, Operations]
 feature_area: 媒体处理、时间线、交付、安全、隐私与数据生命周期
 purpose: 定义媒体从上传、隔离、派生、编辑、交付到保留删除的安全与可追溯设计
 canonical_path: docs/design/ARCH-005-媒体安全隐私与数据生命周期设计.md
-inputs: [ARCH-001, ARCH-003, FR-007, FR-012至FR-019, NFR-001, TCR-001至TCR-003, ADG-001]
+inputs: [ARCH-001, ARCH-003, ARCH-007, FR-007, FR-012至FR-019, NFR-001, TCR-001至TCR-003, ADG-001]
 evidence_baselines: [Jellyfish main@a9678194ddf2d9be3ccbe78d4287d87d5089e123, Toonflow master@bc61ec7a1b5df31293b286981a5f4ad4635464ee]
 outputs: [媒体数据模型, 存储分区, 媒体处理流程, 媒体威胁模型, 保留删除策略, 实施验收清单]
 triggers: [媒体格式变化, 时间线或交付语义变化, 数据驻留变化, 安全或隐私风险, 删除与保留规则变化]
@@ -22,7 +22,7 @@ downstream: [Media PRD, Security PRD, Delivery PRD, Plan, Test Plan, Acceptance,
 
 ## 1. 设计结论与边界
 
-Lanverse 以 PostgreSQL 保存媒体身份、版本、权利、使用、审核和生命周期事实，S3 兼容对象存储只保存二进制对象；原始文件、代理、候选、时间线、审核、采用和交付为独立事实。所有外部媒体默认不可信，必须经隔离、完整性、恶意文件、真实格式和内容安全检查后才能成为可用媒体版本。
+Lanverse 以 PostgreSQL 分模块保存媒体、权利、审核和生命周期事实，S3 兼容对象存储只保存二进制对象；事实所有权遵循 [ARCH-007](ARCH-007-业务模块边界与服务协作设计.md)。原始文件、代理、候选、时间线、审核、采用和交付相互独立；外部媒体必须分别通过技术检查和内容安全裁决后才能用于生产。
 
 首发不提供公开对象、永久链接、浏览器正式渲染或任意 URL 导入；不将文件名、对象 Key、CDN 路径或签名 URL 当作授权证据。保留期、数据驻留区域和交付规格在进入 PRD 前由业务、法务、安全和运维确认。
 
@@ -50,15 +50,15 @@ flowchart LR
 
 | 对象（所属模块） | 权威事实 | 状态或不变式 |
 | --- | --- | --- |
-| MediaObject / MediaVersion（asset-media） | 稳定媒体身份、不可变版本、来源和谱系 | 新文件、派生或重新生成必须新建版本 |
-| ObjectBlob / MediaRendition（asset-media） | 存储引用、内容/存储校验和；工具与配方版本 | Blob 为 `quarantined/active/pending_delete/deleted/delete_failed` |
-| UploadSession（asset-media） | 分片与完成证据 | `initiated/uploading/completed/aborted/expired/error` |
-| ScanAssessment（compliance-delivery） | 独立安全结论、证据和规则版本 | `pending/passed/review_required/blocked/error` |
+| MediaObject / MediaVersion（media-library） | 稳定媒体身份、不可变版本、来源和谱系 | 新文件、派生或重新生成必须新建版本 |
+| ObjectBlob / MediaRendition（media-library） | 存储引用、内容/存储校验和；工具与配方版本 | Blob 为 `quarantined/active/pending_delete/deleted/delete_failed` |
+| UploadSession / MediaTechnicalInspection（media-library） | 分片完成、恶意文件/格式/可解码性技术证据 | 技术失败保持隔离，不能解释为内容违规 |
+| ContentSafetyAssessment（compliance-governance） | 内容安全结论、证据和规则版本 | `pending/passed/review_required/blocked/error`；检查错误不等于通过 |
 | TimelineVersion / Track / ClipRef（postproduction） | 非破坏性编辑及对明确媒体版本的引用 | 已审核或已交付版本不得原位修改 |
 | SubtitleVersion / Cue（postproduction） | 语言、台词来源、整数 Tick 和样式 | 每种语言独立版本、审核和交付 |
 | AudioMixVersion（postproduction） | 对白、音乐、环境声、音效及参数快照 | 混音结果不覆盖源音频 |
-| DeliverySnapshot / Package / File（compliance-delivery） | 固定输入、目标规格、门禁证据、文件清单和校验和 | 重试不改输入；重新交付必须新建版本 |
-| RetentionPolicy / DeletionCase / LegalHold / DeletionEvidence（compliance-delivery） | 适用策略、保留例外、执行步骤与删除证明 | 删除不能改写历史交付和审计事实 |
+| DeliverySnapshot / PackageBuildRecord / Manifest（delivery） | 固定输入、目标规格、门禁证据、文件清单和校验和 | 重试不改输入；重新交付必须新建版本 |
+| RetentionPolicy / DeletionCase / LegalHold / DeletionEvidence（compliance-governance） | 适用策略、保留例外、参与模块步骤与删除证明 | 删除不能改写历史交付和审计事实 |
 
 媒体技术可用性、内容安全、权利、审核、采用和保留必须分字段/对象表达，禁止合并为一个 `status`。
 
@@ -128,7 +128,7 @@ flowchart LR
 | 代理、缩略图、波形和中间物 | 可重建、短保留与容量水位清理 | 重建源可用且无活跃任务 |
 | 交付包、权利与审计证据 | 按合同、发行、争议和法定要求 | 授权主体、保留例外与审批记录 |
 
-删除用例先完成身份校验、范围发现、引用/Legal Hold 判定和二次确认，再创建 `DeletionCase`。编排器先撤销访问并写墓碑，然后幂等清理对象、派生物、CDN/缓存、搜索/分析投影及供应商副本，最后对账并保存策略版本、例外、执行者、时间和结果摘要。
+`compliance-governance` 删除用例先完成身份校验、范围发现、引用/Legal Hold 判定和二次确认，再创建 `DeletionCase`。Temporal 只承载编排，各模块通过自己的生命周期命令撤销访问、写墓碑并幂等清理所属事实/对象/投影；案件最后对账策略、例外、执行者、时间和结果摘要，禁止跨表删除。
 
 备份内数据按既定窗口自然过期，不为单项删除改写不可变备份；恢复后必须重放墓碑且不恢复用户访问。审计只保留合规必要摘要，不保留可再现完整媒体的内容。
 

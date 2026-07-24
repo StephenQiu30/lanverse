@@ -4,13 +4,13 @@ doc_type: API Event File and Data Contract Architecture Design
 doc_no: ARCH-004
 title: API、事件、文件与数据契约设计
 status: review
-version: 0.1.0
+version: 0.2.0
 owner: Lanverse
 audience: [Architecture, Frontend, Backend, QA, Security, Operations, Data]
 feature_area: 前后端集成、事件传播、文件传输与数据生命周期
 purpose: 定义公开API、事件、文件和数据生命周期契约及其兼容与验证规则
 canonical_path: docs/design/ARCH-004-API事件文件与数据契约设计.md
-inputs: [SRS-001, FR-001至FR-021, NFR-001, TCR-001至TCR-003, ADG-001, ARCH-001至ARCH-003]
+inputs: [SRS-001, FR-001至FR-021, NFR-001, TCR-001至TCR-003, ADG-001, ARCH-001至ARCH-003, ARCH-007]
 outputs: [HTTP契约, 事件与回调契约, 文件传输契约, 数据分类与生命周期接口, 兼容和验证门禁]
 triggers: [公开接口变化, 事件模式变化, 文件策略变化, 数据分类或保留规则变化, 客户端兼容窗口变化]
 updated: 2026-07-24
@@ -23,7 +23,7 @@ downstream: [API PRD, Integration Plan, Contract Test Plan, Security Review, Acc
 
 Lanverse 以 OpenAPI 3.1 作为 HTTP 契约源，以版本化 JSON Schema 定义领域事件、SSE 数据和供应商回调，以短期对象授权传输大文件。`backend` 应用层是唯一业务写入权威：公开命令、Worker 结果、事件消费者和生命周期任务都调用所属模块的应用用例；事件、缓存、Temporal、对象存储和生成客户端均不是事实源。
 
-本文覆盖身份上下文、命令/查询、错误、幂等、并发、分页、SSE、Webhook、Outbox、文件传输、数据分类/所有权/生命周期和版本兼容。不定义页面布局、供应商专有字段、数据库物理表、对象存储厂商或实时共同编辑协议；相关流程与任务状态分别由 [ARCH-002](ARCH-002-短剧生产流程与工作台设计.md) 和 [ARCH-003](ARCH-003-AI策划与生成任务架构设计.md) 负责。
+本文覆盖身份上下文、命令/查询、错误、幂等、并发、分页、SSE、Webhook、Outbox、文件传输、数据分类/所有权/生命周期和版本兼容。不定义页面布局、供应商专有字段、数据库物理表、对象存储厂商或实时共同编辑协议；相关流程与任务状态分别由 [ARCH-002](ARCH-002-短剧生产流程与工作台设计.md) 和 [ARCH-003](ARCH-003-AI策划与生成任务架构设计.md) 负责，模块公开面和允许依赖以 [ARCH-007](ARCH-007-业务模块边界与服务协作设计.md) 为准。
 
 ## 2. 契约制品与责任
 
@@ -31,9 +31,9 @@ Lanverse 以 OpenAPI 3.1 作为 HTTP 契约源，以版本化 JSON Schema 定义
 | --- | --- | --- | --- |
 | HTTP OpenAPI 3.1 | `backend/contracts/http/openapi.yaml` | Backend Architecture | API、生成客户端、QA |
 | 事件信封与事件模式 | `backend/contracts/events/*.schema.json` | 事实所属模块 | Outbox、Worker、投影 |
-| SSE 事件模式 | `backend/contracts/sse/*.schema.json` | notification-ops | Frontend、运营工具 |
-| 供应商回调模式 | `backend/contracts/webhooks/*.schema.json` | capability-production | Provider Adapter、Worker |
-| 文件策略与媒体摘要模式 | `backend/contracts/files/*.schema.json` | asset-media | Frontend、对象存储、媒体 Worker |
+| SSE 事件模式 | `backend/contracts/sse/*.schema.json` | operations-support | Frontend、运营工具 |
+| 供应商回调模式 | `backend/contracts/webhooks/*.schema.json` | production-jobs | Provider Adapter、Worker |
+| 文件策略与媒体摘要模式 | `backend/contracts/files/*.schema.json` | media-library | Frontend、对象存储、媒体 Worker |
 | 前端生成客户端 | `frontend/src/services/generated/` | 自动生成、禁止手改 | Frontend features |
 
 契约文件必须固定 `contract_version`、生成工具版本和源提交。控制器 DTO、客户端类型、示例和契约测试必须来自同一接受版本；Prisma、Temporal 和供应商 SDK 类型不得泄漏到公开契约。
@@ -52,8 +52,9 @@ Lanverse 以 OpenAPI 3.1 作为 HTTP 契约源，以版本化 JSON Schema 定义
 | --- | --- | --- |
 | 创建项目 | `POST /v1/workspaces/{workspace_id}/projects` | `project:create`；幂等创建 |
 | 保存版本化草稿 | `PUT /v1/projects/{project_id}/script-drafts/{draft_id}` | `content:draft:write`；`If-Match` 条件写入 |
-| 创建生产任务 | `POST /v1/projects/{project_id}/production-tasks` | `production:task:create`；幂等键、预览哈希和预算事务 |
+| 请求生成 | `POST /v1/projects/{project_id}/generation-requests` | `production:generation:request`；幂等键/预览哈希，经 generation Process Manager 完成预算、合规、准备度与 Task 创建 |
 | 取消任务 | `POST /v1/production-tasks/{task_id}:cancel` | `production:task:cancel`；只写取消请求 |
+| 重试任务 | `POST /v1/production-tasks/{task_id}:retry` | `production:task:retry`；幂等创建 RetryRequest，由原 Process Manager 重验预算/策略并新建 Attempt，不覆盖旧 Attempt |
 | 记录审核决定 | `POST /v1/review-rounds/{round_id}/decisions` | `review:decide`；追加写入且固定对象版本 |
 | 指定当前采用 | `POST /v1/shots/{shot_id}/adoptions` | `adoption:write`；与审核决定独立且唯一 |
 | 创建交付版本 | `POST /v1/projects/{project_id}/deliveries` | `delivery:create`；固定门禁证据并幂等 |
@@ -79,11 +80,11 @@ Lanverse 以 OpenAPI 3.1 作为 HTTP 契约源，以版本化 JSON Schema 定义
 openapi: 3.1.0
 info: {title: Lanverse API, version: 0.1.0-review}
 paths:
-  /v1/projects/{project_id}/production-tasks: {parameters: [{name: project_id, in: path, required: true, schema: {type: string}}], post: {operationId: createProductionTask, responses: {"202": {description: Accepted}, "409": {description: Conflict}}}}
+  /v1/projects/{project_id}/generation-requests: {parameters: [{name: project_id, in: path, required: true, schema: {type: string}}], post: {operationId: requestGeneration, responses: {"202": {description: Accepted}, "409": {description: Conflict}}}}
 components: {schemas: {Problem: {type: object, required: [type, title, status, code, request_id]}, EventEnvelope: {type: object, required: [event_id, event_type, schema_version, occurred_at, producer, workspace_id, aggregate_type, aggregate_id, aggregate_version, correlation_id, causation_id, trace_id, data_classification, data]}, UploadSession: {type: object, required: [id, state, expires_at]}}}
 ```
 
-成功/失败示例分别为 `{"task_id":"tsk_example","status":"queued","resource_version":1}` 与 `{"type":"https://lanverse.example/problems/preview-stale","title":"Preview stale","status":409,"code":"PREVIEW_STALE","retryable":false,"request_id":"req_example"}`。
+成功/失败示例分别为 `{"generation_request_id":"gen_example","task_id":"tsk_example","status":"queued","resource_version":1}` 与 `{"type":"https://lanverse.example/problems/preview-stale","title":"Preview stale","status":409,"code":"PREVIEW_STALE","retryable":false,"request_id":"req_example"}`；`production-jobs.createTask` 仅供受控 Process Manager 调用，不作为客户端 operation。
 
 ## 6. 统一错误模型
 
@@ -110,7 +111,7 @@ components: {schemas: {Problem: {type: object, required: [type, title, status, c
 
 `GET /v1/production-task-events` 仅提供有权项目的任务投影。事件包含 `id/event/data`，`data` 使用第 10 节信封；客户端通过 `Last-Event-ID` 续接，按 `event_id + aggregate_version` 去重并忽略旧版本。服务端每 15 秒发送无业务含义心跳，并在事件或心跳前复核授权；权限撤销后终止连接。
 
-SSE 至少覆盖 `production.task.updated.v1`、`production.attempt.updated.v1`、`media.candidate.available.v1` 和 `delivery.updated.v1`。事件仅提示状态变化；断线、乱序、游标过期或未知事件时，前端显示状态未知并重新查询权威资源。首发保留窗口在容量设计确认，低于窗口的游标返回 `410 EVENT_CURSOR_EXPIRED`，不得从零盲目重放。
+SSE 至少覆盖 `production.task.updated.v1`、`production.attempt.updated.v1`、`generation.candidate.available.v1` 和 `delivery.updated.v1`。事件仅提示状态变化；断线、乱序、游标过期或未知事件时，前端显示状态未知并重新查询权威资源。首发保留窗口在容量设计确认，低于窗口的游标返回 `410 EVENT_CURSOR_EXPIRED`，不得从零盲目重放。
 
 ## 9. Webhook 契约
 
@@ -149,14 +150,14 @@ P0 仅接收供应商回调；客户自定义出站 Webhook 不在首发范围�
 | C2 机密 | 原著、剧本、Prompt、媒体、候选、评论 | 对象级授权、加密、脱敏遥测和受控导出 |
 | C3 受限 | 个人数据、令牌索引、权利证据、账本、安全/审计记录 | 最小用途、增强审计、严格保留；Secret 只返回引用 |
 
-`identity` 独占账户/成员，`project-content` 独占来源/剧本，`asset-media` 独占媒体版本，`agent-runtime` 独占 Run/记忆，`capability-production` 独占 Task/Attempt，`review-governance` 独占决定/采用，`cost-ledger` 独占费用，`compliance-delivery` 独占合规、保留删除、个人数据请求与交付，`notification-ops` 只维护通知/运营投影。跨域只传稳定标识、最小投影或事件，禁止共享写表。
+权威所有权使用 ARCH-007 的 17 模块：`identity-access/project-catalog` 负责身份与项目，`story-development/continuity/creative-assets/media-library/storyboard` 负责故事、资产、媒体与镜头，`agent-runtime/model-catalog/generation/production-jobs/postproduction` 负责 AI 和生产，`review-approval/cost-billing/compliance-governance/delivery` 负责决定、费用、规则和交付，`operations-support` 只维护通知、运营案件与可重建投影。跨域只传稳定标识、版本化快照或事件，禁止共享写表、ORM 关系和级联。
 
 生命周期接口使用显式命令：`POST /v1/projects/{id}:archive`、`POST /v1/media-versions/{id}:request-deletion`、`POST /v1/data-subject-requests` 及其查询。归档不删除事实；不可变版本、决定、账本、合规和审计仅追加纠正记录。删除由各所有者按分类、引用、保留和法律例外执行，输出不可篡改 `DeletionEvidence`；备份中的删除在保留周期到期时收敛并记录例外，缓存/投影可由权威事实重建。
 
 ### 12.1 概念唯一约束与访问索引
 
-- 唯一约束至少覆盖：`tenant + aggregate + version`；每分集/类型唯一当前基线；每采用作用域唯一 active Adoption；`tenant + operation + target + idempotency_key`；`task + attempt_no`；供应请求、Outbox `event_id` 与 Inbox `consumer + event_id` 去重。
-- 主访问索引以 `tenant_id` 为首列，覆盖 Task `(status, created_at, id)`、Attempt `(task_id, created_at, id)`、Outbox `(state, next_attempt_at, id)`、审计 `(occurred_at, id)/(correlation_id)`、稳定游标排序、MediaUsage 反向引用及 DeletionCase/LegalHold 发现；物理索引须经 Plan 中的查询与容量基准确认。
+- 唯一约束至少覆盖：`workspace_id + aggregate + version`；每分集/类型唯一当前基线；每采用作用域唯一 active Adoption；`workspace_id + operation + target + idempotency_key`；`task + attempt_no`；`attempt_id + output_slot`；`metering_event_id`；供应请求、Outbox `event_id` 与 Inbox `consumer + event_id` 去重。
+- 主访问索引以 `workspace_id` 为首列，覆盖 Task `(status, created_at, id)`、Attempt `(task_id, created_at, id)`、Outbox `(state, next_attempt_at, id)`、审计 `(occurred_at, id)/(correlation_id)`、稳定游标排序、MediaUsageProjection 反向引用及 DeletionCase/LegalHold 发现；物理索引须经 Plan 中的查询与容量基准确认。
 
 ## 13. 版本、弃用与发布兼容
 

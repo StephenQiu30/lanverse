@@ -4,13 +4,13 @@ doc_type: Product Workflow and Frontend Architecture Design
 doc_no: ARCH-002
 title: 短剧生产流程与工作台设计
 status: review
-version: 0.3.0
+version: 0.4.0
 owner: Lanverse
 audience: [Product, UX, Architecture, Frontend, Backend, QA, Creative]
 feature_area: 短剧生产流程与创作工作台
 purpose: 定义端到端生产流、工作台信息架构、页面职责和多维状态语义
 canonical_path: docs/design/ARCH-002-短剧生产流程与工作台设计.md
-inputs: [ARCH-001, SRS-001, FR-001至FR-021, TCR-003]
+inputs: [ARCH-001, ARCH-007, SRS-001, FR-001至FR-021, TCR-003]
 evidence_baselines: [Jellyfish main@a967819, Toonflow master@bc61ec7]
 outputs: [生产流程, 页面地图, 状态模型, 前后端聚合契约, 异常回流规则]
 triggers: [生产流程变化, 页面职责变化, 镜头状态变化, 协作范围变化]
@@ -22,7 +22,7 @@ downstream: [PRD, Frontend Plan, API Plan, Acceptance]
 
 ## 1. 核心设计
 
-Lanverse 以“镜头”为高成本生产单元，以“分集”为连续推进范围。准备、生成、审核、采用和交付分别形成事实，不使用一个 `status` 表达整个生命周期。
+Lanverse 以“镜头”为高成本生产单元，以“分集”为连续推进范围。准备、生成、审核、采用和交付分别形成事实，不使用一个 `status` 表达整个生命周期；页面的读写职责和事实所有者遵循 [ARCH-007](ARCH-007-业务模块边界与服务协作设计.md)。
 
 固定提交中的 Jellyfish 源码与架构文档展示了“分镜准备、生成工作室、通用任务中心”的页面边界；Toonflow 产品说明、截图和编译前端展示了“章节事件、结构化策划、Agent 对话与生产画布”的创作方向，不据此推断生产成熟度。Lanverse 组合这些证据：结构化工作台是事实入口，Agent 是受控协作者，画布只是可重建投影。[Jellyfish 页面边界](https://github.com/Forget-C/Jellyfish/blob/a9678194ddf2d9be3ccbe78d4287d87d5089e123/site/content/docs/architecture/shot-page-boundary.md) · [Toonflow 项目说明](https://github.com/HBAI-Ltd/Toonflow-app/blob/bc61ec7a1b5df31293b286981a5f4ad4635464ee/docs/README.en.md)
 
@@ -58,7 +58,7 @@ flowchart LR
 | 拆镜提案 | 剧本基线 | ShotSpec 草稿与提取候选 | 已允许高成本生成 |
 | 镜头准备 | ShotSpec、候选、资产 | ShotPreparationSnapshot | 已具备模型输入 |
 | 生成准备 | 业务草稿与版本化上下文 | GenerationReadiness/Preview | 已创建任务 |
-| 任务执行 | 不可变 SubmissionSnapshot | Attempt 与媒体候选 | 已审核或采用 |
+| 任务执行 | 不可变 SubmissionSnapshot | ProductionAttempt、MediaVersion 与 GenerationCandidate | 已审核或采用 |
 | 审核采用 | 固定候选 | ReviewDecision/Adoption | 整集或合规通过 |
 | 正式交付 | 成片快照与门禁证据 | DeliveryVersion | 渠道已上线 |
 
@@ -72,10 +72,10 @@ flowchart LR
 | 剧本工作台 | PlanningArtifact、ScriptVersion / confirmBaseline | 无草稿引导创建；ETag 冲突比较，确认失败不改基线 | 分镜图和媒体生成 |
 | 分镜列表 | ShotList、PreparationSummary / reorderShots | 空态引导拆镜；分页局部失败保留已载入项并重查 | 单镜头候选的深度确认 |
 | 镜头准备页 | ShotPreparationSnapshot / resolveCandidate | 无提取结果引导提取；过期/冲突刷新快照后比较 | 图片/视频任务主操作 |
-| 分集生成工作室 | GenerationReadiness、Preview、Task / createTask | 阻断项深链负责页；SSE 断线以游标续接和权威查询收敛 | 重新承担候选确认主流程 |
-| 资产工作台 | AssetCatalog、MediaUsage / bindAssetVersion | 空态引导建资产；受限/失效版本禁止绑定并重查使用位置 | 叙事事实裁决 |
+| 分集生成工作室 | GenerationReadiness、Preview、GenerationRequest/Task / requestGeneration | 阻断项深链负责页；SSE 断线以游标续接和权威查询收敛 | 绕过预算/合规/准备度直接 createTask |
+| 资产工作台 | AssetCatalog、MediaUsageProjection / bindAssetVersion | 空态引导建资产；受限/失效版本禁止绑定并重查使用位置 | 叙事事实裁决 |
 | 任务中心 | ProductionTaskProjection / cancel、retry | 空态说明无任务；游标失效查询快照，unknown 提供对账入口 | 提示词调试、审核或业务编辑 |
-| 候选审片室 | CandidateMedia、ReviewRound / decide、adopt | 无提交显示来源入口；固定版本失效阻止决定并重开轮次 | 修改生成输入 |
+| 候选审片室 | GenerationCandidate、ReviewRound / decide、adopt | 无提交显示来源入口；固定版本失效阻止决定并重开轮次 | 修改生成输入 |
 | 后期时间线 | TimelineVersion、ProxyManifest / save、render | 空态建时间线；代理失败保留位置，冲突比较/另存版本 | 改写上游候选和镜头基线 |
 | 交付中心 | DeliveryGateSummary / createDelivery | 空态列前置项；门禁失败定位证据，部分导出返回原快照 | 创作编辑 |
 | 平台设置 | WorkspacePolicy、CapabilityManifest / publishPolicy | 空配置使用受控默认；ETag 冲突重载，越权不暴露敏感值 | 项目内容生产 |
@@ -168,12 +168,12 @@ flowchart LR
 
 | 动作 | 后端强制的动作权限/策略 |
 | --- | --- |
-| 编辑剧本/镜头草稿、处理候选 | `content:draft:write` / `candidate:resolve` |
+| 编辑剧本/镜头草稿、处理拆镜候选、裁决生成一致性 | `content:draft:write` / `storyboard:extraction:resolve` / `generation:consistency:resolve` |
 | 确认剧本/分镜基线 | `baseline:confirm`，且满足责任分配策略 |
-| 启动高成本批次 | `production:task:create`，且通过预算/模型/合规策略 |
+| 启动生成、取消或重试任务 | `production:generation:request` / `production:task:cancel` / `production:task:retry`，且通过预算/模型/合规策略 |
 | 审核候选与整集 | `review:decide`，按职责分离策略校验 |
 | 当前采用、正式交付 | `adoption:write` / `delivery:create` |
-| 修改模型、模板、预算和合规策略 | `workspace:policy:manage` 的细分权限 |
+| 修改模型路由、Agent 模板、预算或合规策略 | 分别使用 `workspace:policy:manage` / `agent:manage` / `budget:manage` / `compliance:policy:manage` |
 
 编剧、导演、制作人员等仅是 persona 示例，不直接产生权限；后端按主体、租户、对象、动作和策略授权。MVP 使用乐观并发，冲突时提供比较、重载或另存版本。
 

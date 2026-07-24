@@ -4,13 +4,13 @@ doc_type: Backend Data and Workflow Architecture Design
 doc_no: ARCH-003
 title: AI策划、生成准备与异步任务架构设计
 status: review
-version: 0.3.0
+version: 0.4.0
 owner: Lanverse
 audience: [Architecture, Backend, Frontend, QA, Security, Operations, Data]
 feature_area: 来源事件、Agent策划、镜头生成准备、任务编排与媒体谱系
 purpose: 定义领域对象、Agent边界、生成快照、API契约、Temporal执行、失败恢复和结果采用
 canonical_path: docs/design/ARCH-003-AI策划与生成任务架构设计.md
-inputs: [ARCH-001, ARCH-002, FR-003至FR-011, FR-016至FR-021, TCR-002]
+inputs: [ARCH-001, ARCH-002, ARCH-007, FR-003至FR-011, FR-016至FR-021, TCR-002]
 evidence_baselines: [Jellyfish main@a967819, Toonflow master@bc61ec7]
 outputs: [领域数据模型, Agent运行模型, 生成四层模型, API边界, 任务状态机, 可靠性和回滚设计]
 triggers: [策划流程变化, 任务状态变化, 模型接入变化, 媒体谱系变化, 计费规则变化]
@@ -22,7 +22,7 @@ downstream: [API PRD, Production Plan, Test Plan, Acceptance, ADR]
 
 ## 1. 设计结论
 
-来源理解、Agent 策划和媒体生成都先产生可审查版本，不直接改写正式基线。每次生成由“业务草稿→解析上下文→派生预览→不可变提交快照”驱动；PostgreSQL 的 `ProductionTask/Attempt` 是任务事实源，Temporal 负责可靠执行，候选经审核和采用后才能进入时间线或交付。
+来源理解、Agent 策划和媒体生成都先产生可审查版本，不直接改写正式基线。每次生成由“业务草稿→解析上下文→派生预览→不可变提交快照”驱动；`production-jobs` 的 `ProductionTask/Attempt` 是任务事实源，Temporal 负责可靠执行，`generation` 候选经审核和采用后才能进入时间线或交付。模块所有权以 [ARCH-007](ARCH-007-业务模块边界与服务协作设计.md) 为准。
 
 Jellyfish 的四层生成和任务真相层予以吸收；Toonflow 的事件中间层、Agent、Skill 和能力驱动 Provider 只吸收职责思想，并补齐版本、租户、人工门禁和安全边界。[Jellyfish 生成准备](https://github.com/Forget-C/Jellyfish/blob/a9678194ddf2d9be3ccbe78d4287d87d5089e123/site/content/docs/architecture/generation-workspace.md)
 
@@ -32,24 +32,24 @@ Toonflow 固定提交证据分列为[事件提取](https://github.com/HBAI-Ltd/T
 
 | 对象 | 事实与关键约束 | 所属模块 |
 | --- | --- | --- |
-| SourceDocumentRevision | 原著/剧本来源版本、权利、校验和与解析状态 | project-content |
-| SourceEventRevision/Relation | 带证据片段的来源事件节点；Relation 为 P1 的时间、因果、伏笔、回收、并行和人物弧候选 | project-content |
-| PlanningArtifactVersion | 故事骨架、改编策略、分集规划和导演规划的不可变版本 | project-content |
-| ScriptVersion | 唯一当前剧本基线及其上游来源 | project-content |
+| SourceDocumentRevision | 原著/剧本来源版本、权利证据/合规结论版本引用、校验和与解析状态 | story-development |
+| SourceEventRevision/Relation | 带证据片段的来源事件节点；Relation 为 P1 的时间、因果、伏笔、回收、并行和人物弧候选 | story-development |
+| PlanningArtifactVersion | 故事骨架、改编策略、分集规划和导演规划的不可变版本 | story-development |
+| ScriptVersion / Scene / DialogueLine | 唯一当前剧本基线、场次/对白及其上游来源 | story-development |
 | ShotSpecVersion | 镜头意图、动作、对白和唯一当前分镜基线 | storyboard |
 | AgentRun/AgentStep/AgentReview | 策划、执行、机器复核运行及工具调用、用量和候选引用 | agent-runtime |
-| HumanDecision | 对 Agent 候选的不可变接受、修改请求或拒绝事实 | review-governance |
+| HumanDecision | 对 Agent 候选的不可变接受、修改请求或拒绝事实 | review-approval |
 | ExtractionRun/Candidate/Resolution | 拆镜或元素提取提案，以及追加式关联、接受、修正或忽略决定 | storyboard |
-| AssetIdentity/AssetVersion | 稳定资产与服装、变身、时段等不可变衍生版本 | asset-media |
-| ProjectAssetBinding | 项目对明确资产版本的授权关系 | asset-media |
+| AssetIdentity/AssetVersion | 稳定资产与服装、变身、时段等不可变衍生版本 | creative-assets |
+| ProjectAssetBinding | 项目对明确资产版本的授权关系 | creative-assets |
 | ShotAssetBinding | 镜头对明确资产版本的有序引用 | storyboard |
-| GenerationDraft/ContextSnapshot | 可编辑意图与服务端解析的版本化上下文 | capability-production |
-| DerivedPreview/SubmissionSnapshot | 编译预览与实际提交输入的不可变快照、哈希和策略 | capability-production |
-| ProductionTask/ProductionAttempt | 用户目标、预算账本引用与每次不可覆盖的供应执行事实 | capability-production |
-| BudgetHold/LedgerEntry | 预算预占、结算、释放、退款和冲正的追加式账本事实 | cost-ledger |
-| CandidateMedia | 一次生产尝试的技术可用候选和质量信号 | capability-production |
-| ReviewRound/ReviewDecision/Adoption | 固定候选的审核轮次、不可变决定和唯一当前采用关系 | review-governance |
-| MediaObject/MediaVersion/MediaUsage | 逻辑媒体、物理版本、校验和、派生与用途谱系 | asset-media |
+| GenerationDraft/ContextSnapshot | 可编辑意图与服务端解析的版本化上下文 | generation |
+| DerivedPreview/SubmissionSnapshot | 编译预览与实际提交输入的不可变快照、哈希和策略 | generation |
+| ProductionTask/ProductionAttempt | 用户目标、预算引用与每次不可覆盖的供应执行事实 | production-jobs |
+| BudgetHold/LedgerEntry | 预算预占、结算、释放、退款和冲正的追加式账本事实 | cost-billing |
+| GenerationCandidate | 一次生产尝试产生的创意候选，引用明确 MediaVersion 和质量信号 | generation |
+| ReviewRound/ReviewDecision/Adoption | 固定候选的审核轮次、不可变决定和唯一当前采用关系 | review-approval |
+| MediaObject/MediaVersion/MediaUsageProjection | 逻辑媒体、物理版本、技术状态/校验和/派生谱系；使用投影由源模块引用重建 | media-library |
 
 工作空间是全局资产的租户边界；项目、镜头和 Track 保存版本化绑定而非内容副本。画布、Agent 记忆、Redis、Temporal 可见性和供应商状态均不得成为这些对象的唯一来源。
 
@@ -59,16 +59,17 @@ Toonflow 固定提交证据分列为[事件提取](https://github.com/HBAI-Ltd/T
 flowchart LR
     SRC["Source Revision"] --> EVT["Source Event Revision"]
     EVT --> PLAN["Planning Artifact"]
-    PLAN --> SCRIPT["Script/Shot Version"]
+    PLAN --> SCRIPT["Script Version"]
+    SCRIPT --> SHOT["ShotSpec Version"]
     AR["Agent Run"] --> PLAN
     AR --> RV["Agent Review"]
     RV --> HG["Human Gate"]
     HG -->|"accept"| PLAN
-    SCRIPT --> DRAFT["Generation Draft"]
+    SHOT --> DRAFT["Generation Draft"]
     DRAFT --> PREVIEW["Context + Preview"]
     PREVIEW --> SNAP["Submission Snapshot"]
     SNAP --> TASK["Task + Attempts"]
-    TASK --> MEDIA["Media Candidates"]
+    TASK --> MEDIA["MediaVersion + GenerationCandidate"]
     MEDIA --> DEC["Review + Adoption"]
 ```
 
@@ -112,32 +113,33 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
-    participant W as Frontend
-    participant A as Backend API
-    participant B as Backend Application
-    participant D as PostgreSQL
+    participant G as generation Process Manager
+    participant C as cost-billing
+    participant J as production-jobs
     participant O as Outbox Dispatcher
     participant T as Temporal
     participant K as Backend Worker
-    participant P as Provider
-    W->>A: CreateTask(idempotency_key, preview_hash)
-    A->>B: Authorize and execute command
-    B->>D: Transaction: Submission + Task + hold + Outbox
-    A-->>W: 202 task_id
-    O->>D: Claim committed Outbox with lease
-    O->>T: Start/signal stable workflow_id idempotently
-    T->>K: Execute attempt activity
-    K->>P: Versioned provider request
-    P-->>K: Callback or reconciled result
-    K->>B: CompleteAttempt use case
-    B->>D: Attempt + usage + media + event
-    T->>K: Finalize task activity
-    K->>B: FinalizeTask use case
-    B->>D: Task terminal state + ledger + event
-    A-->>W: Resumable SSE from committed events
+    participant M as media-library
+    G->>C: reserveBudget(idempotency_key)
+    C-->>G: hold_id or reject
+    G->>G: Tx: Submission + request + Outbox
+    G->>J: createTask(submission_ref, hold_ref)
+    J->>J: Tx: Task + Outbox
+    O->>T: Start stable workflow_id idempotently
+    T->>K: Execute/reconcile provider Activity
+    K->>J: recordProviderResult(normalized_usage)
+    J->>J: Tx: Result + metering event; Attempt postprocessing
+    K->>C: settleUsage(metering_event_id) or releaseHold
+    C->>C: Tx: LedgerEntry + event
+    K->>M: registerMedia(provider_result)
+    M->>M: Tx: MediaVersion + event
+    K->>G: registerCandidate(media_version_id)
+    G->>G: Tx: GenerationCandidate + event
+    K->>J: finalizeAttempt(output_refs)
+    J->>J: Tx: Attempt + Task terminal transition
 ```
 
-Workflow 只编排并调度 Activity，不访问业务数据库或账本；API 与 Worker 均通过同一 `backend` 应用用例写入。Outbox、回调和对象写入以唯一约束幂等；队列只传稳定标识，不传密钥、大媒体或可变业务对象。
+API 在完成预占和 Task 创建后返回 `202 task_id`，并用已提交事件提供可续接 SSE。每个 `Tx` 只写所属模块；有效计量独立结算，媒体/候选失败不伪造免费，按规则追加退款或补偿。Attempt 仅在所需输出登记后终结；受理失败保持 `waiting_platform` 并由租约释放孤立 Hold。Workflow 只编排 Activity，API/Worker 均调用公开用例。
 
 ## 9. 状态、取消与恢复
 
@@ -145,23 +147,23 @@ Workflow 只编排并调度 Activity，不访问业务数据库或账本；API �
 | --- | --- |
 | AgentRun（agent-runtime） | draft、queued、running、succeeded、failed、cancelling、cancelled、unknown |
 | AgentReview（agent-runtime） | pending、running、completed、failed、superseded |
-| HumanDecision（review-governance） | accepted、changes_requested、rejected；每次决定不可变 |
-| ProductionTask（capability-production） | queued、blocked、waiting_user、waiting_upstream、waiting_platform、running、postprocessing、partially_succeeded、succeeded、failed、cancelling、cancelled、skipped、manual_action_required、unknown |
-| ProductionAttempt（capability-production） | created、submitted、provider_queued、provider_running、receiving、postprocessing、succeeded、failed、cancelled、unknown |
-| CandidateMedia（capability-production） | quarantined、available、rejected_by_system、archived |
-| ReviewRound（review-governance） | open、in_review、changes_requested、approved、rejected、terminated、superseded |
-| ReviewDecision（review-governance） | approved、changes_requested、rejected、terminated；追加且不可变 |
-| Adoption（review-governance） | active、superseded、revoked；无 active 关系即未采用 |
+| HumanDecision（review-approval） | accepted、changes_requested、rejected；每次决定不可变 |
+| ProductionTask（production-jobs） | queued、blocked、waiting_user、waiting_upstream、waiting_platform、running、postprocessing、partially_succeeded、succeeded、failed、cancelling、cancelled、skipped、manual_action_required、unknown |
+| ProductionAttempt（production-jobs） | created、submitted、provider_queued、provider_running、receiving、postprocessing、succeeded、failed、cancelled、unknown |
+| GenerationCandidate（generation） | awaiting_media、ready_for_review、blocked、archived；阻断引用外部决定，媒体技术状态另属 media-library |
+| ReviewRound（review-approval） | open、in_review、changes_requested、approved、rejected、terminated、superseded |
+| ReviewDecision（review-approval） | approved、changes_requested、rejected、terminated；追加且不可变 |
+| Adoption（review-approval） | active、superseded、revoked；无 active 关系即未采用 |
 
 ### 9.1 允许的转换与处置
 
 | 对象 | 正常推进 | 等待、异常、取消与恢复 | 终态/重做不变式 |
 | --- | --- | --- | --- |
 | AgentRun / AgentReview | Run：draft→queued→running→succeeded；Review：pending→running→completed | Run 活跃→cancelling→cancelled/failed/unknown；unknown 经对账回 running 或终态；Review 可 failed，输入失效→superseded | Run 终态不回退，重试新建 Run；Review 报告只追加 |
-| ProductionTask | queued↔blocked/waiting_user/waiting_upstream/waiting_platform→running→postprocessing→succeeded/partially_succeeded | 活跃→cancelling→cancelled；错误→failed；策略→skipped/manual_action_required；unknown 经对账回活跃或终态 | manual_action_required 可恢复 queued；取消剩余→cancelled、不可恢复→failed、授权免做→skipped；重试/换路由新建 Attempt |
+| ProductionTask | queued↔blocked/waiting_user/waiting_upstream/waiting_platform→running→postprocessing→succeeded/partially_succeeded | 活跃→cancelling→cancelled；错误→failed；策略→skipped/manual_action_required；unknown 经对账回活跃或终态 | manual_action_required 可恢复 queued；取消剩余→cancelled、不可恢复→failed、授权免做→skipped；`requestRetry`/换路由经新预算决定后只新建 Attempt |
 | ProductionAttempt | created→submitted→provider_queued→provider_running→receiving→postprocessing→succeeded | 活跃→failed/cancelled/unknown；unknown 经供应对账回原阶段或终态 | 终态不可覆盖；迟到结果隔离，补做新建 Attempt |
 | ReviewRound | open→in_review→approved/rejected/changes_requested/terminated | 固定对象失效→superseded；changes_requested 的修订对象新开轮次 | ReviewDecision/HumanDecision 只追加，不改运行状态 |
-| CandidateMedia / Adoption | quarantined→available 或 rejected_by_system；available→archived | 仅 approved 候选可建 active Adoption；替换/撤销→superseded/revoked | 每个采用作用域最多一个 active，历史关系不可删除 |
+| GenerationCandidate / Adoption | awaiting_media→ready_for_review/blocked；复核解除后 blocked→ready_for_review，任一可→archived | 仅技术可用、合规允许且 approved 候选可建 active Adoption；替换/撤销→superseded/revoked | 每个采用作用域最多一个 active，历史关系不可删除 |
 
 - 状态只能由所属模块的显式命令转换；评审决定不回写任务状态，采用关系不回写审核轮次，聚合页面不得创造合并状态。
 - 取消/失败补偿以幂等 Activity 释放未结算预占、撤销临时授权并按保留策略清理未采用中间物；已计费或迟到结果只对账/隔离，不伪造回滚。
@@ -172,9 +174,9 @@ Workflow 只编排并调度 Activity，不访问业务数据库或账本；API �
 
 - `CapabilityAdapter` 负责配置验证、模型清单、提交、查询/回调、取消和用量归一；Manifest 记录输入模式/限制、时长、分辨率、画幅、原生音频、异步方式、价格、地区、保留和许可版本。
 - 生产环境禁止在 API 进程执行用户提交的 TypeScript 或从任意 URL 拉取代码。扩展只接受管理员批准、签名和版本化 Adapter；如需第三方插件，必须经 ADR 采用独立沙箱、资源时限、默认断网、域名白名单和 Secret Reference。
-- 外部媒体先进入隔离区，验证类型、大小、校验和与安全后形成 MediaVersion，再生成代理、缩略图和探针；供应商 URL 不是平台媒体地址。
+- 外部媒体先进入隔离区；类型、大小、校验和、恶意文件和可解码性技术检查形成带技术状态的 MediaVersion，内容安全由独立 ComplianceDecision 门禁。通过所需门禁后再生成代理/探针；供应商 URL 不是平台媒体地址。
 - BYOK/平台密钥仅存秘密管理系统，日志、数据库业务字段、任务载荷、浏览器和 Agent 记忆不得包含密钥或长期签名 URL。
-- 任务创建原子预占预算，账本按归一化用量结算或释放；审计关联 workspace、来源版本、AgentRun、Task、Attempt、模型、费用、媒体、审核和采用。
+- 预算预占、Submission、Task、媒体、候选和账本是跨模块 Saga，不宣称原子；每一步以引用和幂等键关联，失败时保留可继续、释放、补偿或人工处置的事实。
 
 ## 11. 实施、迁移与回滚
 
