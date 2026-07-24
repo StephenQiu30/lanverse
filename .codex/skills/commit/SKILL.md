@@ -11,7 +11,7 @@ description:
 ## Goals
 
 - Produce a commit that reflects the actual code changes and the session context.
-- Follow `WORKFLOW.md` and `AGENTS.md` commit discipline (allowed types and test-first ordering).
+- Follow `AGENTS.md` commit discipline (allowed types and test-first ordering).
 - Include both summary and rationale in the body.
 
 ## Allowed commit types
@@ -22,7 +22,7 @@ Only these subject prefixes are allowed:
 - `impl:` — smallest implementation that makes existing red tests pass
 - `feat:` — user-visible capability or behavior changes (after prior `test:` unless documented as not scriptable)
 - `refactor:` — behavior-preserving cleanup after tests are green
-- `docs:` — documentation, examples, workflow text, acceptance notes
+- `docs:` — documentation, examples, and acceptance notes
 - `chore:` — CI, configuration, dependency metadata, generated housekeeping
 
 For feature or behavior work, preserve order: `test:` first, then `impl:`/`feat:`, then optional `refactor:`, `docs:`, or `chore:`.
@@ -33,7 +33,7 @@ Do not mix unrelated types in one commit. Split by type when practical.
 
 - Session history for intent and rationale.
 - `git status`, `git diff`, and `git diff --staged` for actual changes.
-- `WORKFLOW.md`, `AGENTS.md`, and workpad `Commit Plan` when present.
+- `AGENTS.md` and the current task context.
 
 ## Steps
 

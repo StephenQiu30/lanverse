@@ -1,6 +1,6 @@
 # AGENTS.md
 
-本文件只记录 Codex 侧长期稳定的协作规则。项目级路径、命令和环境约束放在 `AGENTS.local.md`；Linear 编排、workspace、hooks 和运行时配置放在 `WORKFLOW.md`；角色与可复用操作分别放在 `.codex/agents/` 和 `.codex/skills/`。
+本文件只记录 Codex 侧长期稳定的协作规则。项目级路径、命令和环境约束放在 `AGENTS.local.md`；角色与可复用操作分别放在 `.codex/agents/` 和 `.codex/skills/`。
 
 ## 核心原则
 
@@ -35,22 +35,12 @@
 6. UI 变更使用项目已有的启动与浏览器验证工具检查关键路径，并保存截图、页面状态或复现步骤。
 7. 实现后逐项回填 Acceptance；失败、阻塞或无证据的条目不能判定通过。
 
-## Linear 与 Workpad
-
-1. 复杂任务以 Linear ticket 和隔离 workspace 为执行单位；状态流由 `WORKFLOW.md` 定义。
-2. 每个 ticket 只维护一个 `## Codex Workpad`，不散落额外进度或完成评论。
-3. Workpad 至少包含环境戳 `<hostname>:<abs-workdir>@<short-sha>`、Execution Documents、Plan、Acceptance Criteria、Validation 和 Notes。
-4. ticket 描述、评论、PR 反馈和正式文档中的验收要求都要同步到同一 Workpad。
-5. `Blocked` 只用于缺少必要权限、secret、外部服务、工具或不可替代的人类决策；普通实现困难不是阻塞。
-6. `Agent Review` 必须从 Design、PRD、Plan、ticket 和 Workpad 导出编号清单，并为每项记录 `passed`、`failed` 或 `blocked` 及证据。
-7. 任一条未通过或缺少证据时进入 `Rework`；全部通过后才进入 `Human Review`。
-
 ## 角色边界
 
 复杂任务按 `Explorer → PM → Builder → Tester → Reporter` 收敛：
 
 - `Explorer`：核验代码、配置、历史、issue 和 PR，提供事实依据。
-- `PM`：控制范围、验收、风险和非目标，维护正式文档与 Workpad。
+- `PM`：控制范围、验收、风险和非目标，维护正式文档。
 - `Builder`：按 Plan 完成最小实现，不扩大契约。
 - `Tester`：独立执行测试、构建、运行时或 UI 验证，并检查 Acceptance。
 - `Reporter`：汇总改动、证据、风险、Git 和 PR 状态。
@@ -61,12 +51,12 @@
 
 1. 提交类型只使用 `test:`、`docs:`、`impl:`、`feat:`、`chore:`、`refactor:`，每个提交职责单一。
 2. 功能变更保持 `test:` → `impl:`/`feat:` → 可选 `refactor:`/`docs:`/`chore:` 的顺序。
-3. 新 PR 分支必须匹配 `feature/[a-z][a-z0-9_]*`；slug 描述真实能力，不含 ticket ID、中文、连字符或其他前缀。
+3. 新 PR 分支必须匹配 `feature/[a-z][a-z0-9_]*`；slug 描述真实能力，不含任务编号、中文、连字符或其他前缀。
 4. 提交前后检查 diff 与工作区，排除无关修改、secret、缓存、日志、构建产物和一次性文件。
 5. PR 正文遵循仓库模板，至少说明 Summary、Test-first Evidence、Commands、Result、Agent Usage 和 Reviewer Checklist。
-6. 进入 `Human Review` 前，目标验证与 PR feedback sweep 必须完成，PR 检查为绿色或明确说明未配置检查。
-7. 人工批准进入 `Merging` 后，为准确落地提交创建并推送 annotated pre-merge tag，再执行 `.codex/skills/land/SKILL.md`；不要直接调用 `gh pr merge`。
-8. `Rework` 必须重读正式文档、ticket、Workpad、PR 反馈和最新 `origin/main`，完成后重新进入 `Agent Review`。
+6. 合并前必须完成目标验证和 PR feedback sweep，PR 检查为绿色或明确说明未配置检查。
+7. 收到人工合并批准后，为准确落地提交创建并推送 annotated pre-merge tag，再执行 `.codex/skills/land/SKILL.md`。
+8. 根据反馈返工时，重读正式文档、PR 意见和最新 `origin/main`，修正后重新验证。
 
 ## 交付格式
 
